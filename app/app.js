@@ -1,284 +1,519 @@
-const alertColors = {
-  Green: "#2ca25f",
-  Yellow: "#f4c542",
-  Orange: "#ef7d32",
-  Red: "#d73027",
+/* ════════════════════════════════════════════════════════
+   Rawalpindi Dengue Alert — App Logic
+   Renders forecast data, map, chart, and auto-refresh
+   ════════════════════════════════════════════════════════ */
+
+'use strict';
+
+// ── Constants ──────────────────────────────────────────
+const ALERT_COLORS = {
+  Green:  '#059669',
+  Yellow: '#d97706',
+  Orange: '#ea580c',
+  Red:    '#dc2626',
 };
 
-function fmt(value, digits = 1) {
-  return Number(value).toLocaleString(undefined, {
-    maximumFractionDigits: digits,
-  });
+const ALERT_PULSE = {
+  Green:  'rgba(5,150,105,0.2)',
+  Yellow: 'rgba(217,119,6,0.2)',
+  Orange: 'rgba(234,88,12,0.25)',
+  Red:    'rgba(220,38,38,0.28)',
+};
+
+const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const DATA_PATH_FORECAST  = 'data/latest_forecast.json';
+const DATA_PATH_GEOJSON   = 'data/rawalpindi_uc_forecast.geojson';
+
+// City viewport bounds for Rawalpindi
+const CITY_BOUNDS = { south: 33.48, west: 72.94, north: 33.67, east: 73.16 };
+
+// ── Shared state ──────────────────────────────────────
+let _chartInstance = null;
+let _mapInstance   = null;
+let _geojsonLayer  = null;
+let _refreshTimer  = null;
+let _lastForecast  = null;
+
+// ── Helpers ────────────────────────────────────────────
+function fmt(v, digits = 1) {
+  const n = Number(v);
+  if (!isFinite(n)) return '—';
+  return n.toLocaleString(undefined, { maximumFractionDigits: digits });
 }
 
 function alertColor(alert) {
-  return alertColors[alert] || "#94a3b8";
+  return ALERT_COLORS[alert] || '#4d6a8a';
+}
+
+function alertPulse(alert) {
+  return ALERT_PULSE[alert] || 'rgba(100,120,140,0.15)';
 }
 
 function isoWeekRange(year, week) {
+  // Get the Monday of ISO week
   const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
   const day = simple.getUTCDay() || 7;
   const monday = new Date(simple);
   monday.setUTCDate(simple.getUTCDate() - day + 1);
   const sunday = new Date(monday);
   sunday.setUTCDate(monday.getUTCDate() + 6);
-  const options = { month: "short", day: "numeric" };
-  return `${monday.toLocaleDateString(undefined, options)} to ${sunday.toLocaleDateString(undefined, options)}, ${year}`;
+  const opts = { month: 'short', day: 'numeric' };
+  return `${monday.toLocaleDateString(undefined, opts)} – ${sunday.toLocaleDateString(undefined, opts)}`;
+}
+
+function isoWeekLabel(year, week) {
+  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
+  const day = simple.getUTCDay() || 7;
+  const monday = new Date(simple);
+  monday.setUTCDate(simple.getUTCDate() - day + 1);
+  return monday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 }
 
 async function loadJson(path) {
-  const res = await fetch(path);
-  if (!res.ok) throw new Error(`Could not load ${path}`);
+  const res = await fetch(path + '?t=' + Date.now()); // cache-bust
+  if (!res.ok) throw new Error(`Failed to load ${path}: ${res.status}`);
   return res.json();
 }
 
+function el(id) { return document.getElementById(id); }
+
+// Animate a number counting up from 0 to target
+function animateCount(element, target, duration = 600, decimals = 0) {
+  const start = performance.now();
+  const from = 0;
+  function tick(now) {
+    const progress = Math.min((now - start) / duration, 1);
+    const eased = 1 - Math.pow(1 - progress, 3);
+    const current = from + (target - from) * eased;
+    element.textContent = fmt(current, decimals);
+    if (progress < 1) requestAnimationFrame(tick);
+  }
+  requestAnimationFrame(tick);
+}
+
+// ── Render: Header / Summary ───────────────────────────
 function renderSummary(data) {
   const first = data.weekly_forecasts[0];
-  const period = isoWeekRange(first.year, first.week);
-  const alertRows = (data.top_ucs || []).filter((row) => ["Red", "Orange", "Yellow"].includes(row.alert));
-  const redRows = alertRows.filter((row) => row.alert === "Red");
-  const orangeRows = alertRows.filter((row) => row.alert === "Orange");
-  const alertNode = document.getElementById("modelAlert");
-  document.getElementById("generatedAt").textContent =
-    `Generated ${new Date(data.generated_at).toLocaleString()}`;
-  document.getElementById("forecastPeriodLabel").textContent = `Next week: ${period}`;
-  document.getElementById("expectedCases").textContent = fmt(first.expected_cases);
-  document.getElementById("forecastRange").textContent =
-    `${fmt(first.lower_cases)} to ${fmt(first.upper_cases)} reported cases expected overall`;
-  document.getElementById("redCount").textContent = String(alertRows.length);
-  if (redRows.length) {
-    alertNode.textContent = `High alert: ${redRows.length} UC${redRows.length === 1 ? "" : "s"}`;
-    alertNode.className = "model-alert red";
-  } else if (orangeRows.length) {
-    alertNode.textContent = `Elevated: ${orangeRows.length} UC${orangeRows.length === 1 ? "" : "s"}`;
-    alertNode.className = "model-alert orange";
-  } else if (alertRows.length) {
-    alertNode.textContent = `Watch: ${alertRows.length} UC${alertRows.length === 1 ? "" : "s"}`;
-    alertNode.className = "model-alert yellow";
+  const topUcs = data.top_ucs || [];
+
+  // Weather pill
+  const isLive = (data.weather_status || '').toLowerCase().includes('fresh');
+  const dot = el('weatherDot');
+  el('weatherStatus').textContent = isLive ? 'Live Weather' : 'Fallback Weather';
+  dot.className = 'pill-dot ' + (isLive ? 'live' : 'warn');
+
+  // Timestamp pill
+  const ts = new Date(data.generated_at);
+  el('generatedAt').textContent = `Updated ${ts.toLocaleDateString(undefined, { month:'short', day:'numeric' })} ${ts.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' })}`;
+
+  // Forecast period & cases
+  el('forecastPeriodLabel').textContent = isoWeekRange(first.year, first.week);
+
+  const casesEl = el('expectedCases');
+  const targetCases = Number(first.expected_cases);
+  animateCount(casesEl, targetCases, 700, 1);
+
+  el('forecastRange').textContent = `${fmt(first.lower_cases, 1)} – ${fmt(first.upper_cases, 1)} cases range`;
+
+  // Alert badge
+  const redRows    = topUcs.filter(r => r.alert === 'Red');
+  const orangeRows = topUcs.filter(r => r.alert === 'Orange');
+  const alertRows  = topUcs.filter(r => ['Red','Orange','Yellow'].includes(r.alert));
+
+  const badge    = el('alertBadge');
+  const badgeLvl = el('badgeLevel');
+
+  if (redRows.length > 0) {
+    badge.className    = 'forecast-badge red';
+    badgeLvl.textContent = `⚠ RED ALERT`;
+  } else if (orangeRows.length > 0) {
+    badge.className    = 'forecast-badge orange';
+    badgeLvl.textContent = `▲ HIGH RISK`;
+  } else if (alertRows.length > 0) {
+    badge.className    = 'forecast-badge yellow';
+    badgeLvl.textContent = `◆ WATCH`;
   } else {
-    alertNode.textContent = "No elevated UC alert this week";
-    alertNode.className = "model-alert green";
+    badge.className    = 'forecast-badge green';
+    badgeLvl.textContent = `✓ LOW RISK`;
   }
-  document.getElementById("weatherStatus").textContent =
-    data.weather_status.includes("used") ? "Connected" : "Fallback";
-  document.getElementById("surveillanceStatus").textContent =
-    `${data.weather_status}. ${data.surveillance_status}`;
-  document.getElementById("modelName").textContent = data.selected_model.name;
-  document.getElementById("modelScore").textContent =
-    `Mean RMSE ${fmt(data.selected_model.rolling_origin_mean_rmse, 2)} · MAE ${fmt(data.selected_model.rolling_origin_mean_mae, 2)}`;
-  document.getElementById("externalScore").textContent =
-    fmt(data.external_2025_validation.rmse, 2);
+
+  // KPIs
+  const alertUcEl = el('alertUcCount');
+  animateCount(alertUcEl, alertRows.length, 600, 0);
+
+  const redUcEl = el('redUcCount');
+  animateCount(redUcEl, redRows.length, 600, 0);
+
+  // Model info
+  const model = data.selected_model || {};
+  el('modelR2').textContent = model.rolling_origin_mean_r2 != null
+    ? fmt(model.rolling_origin_mean_r2, 3)
+    : '—';
+  el('modelName').textContent = model.name || 'Gradient Boosting';
+
+  // Operational note
+  el('surveillanceStatus').textContent =
+    `${data.weather_status || ''}. ${data.surveillance_status || ''}`;
 }
 
-function renderTopUcs(rows) {
-  const container = document.getElementById("topUcRows");
-  container.innerHTML = rows
-    .filter((row) => row.tehsil === "Rawalpindi Tehsil")
-    .slice(0, 10)
-    .map(
-      (row, index) => `
-        <div class="uc-chip is-${row.alert.toLowerCase()}" style="border-left-color:${alertColor(row.alert)}">
-          <div class="uc-rank" style="background:${alertColor(row.alert)}">${index + 1}</div>
-          <div>
+// ── Render: 4-Week Forecast Chart ─────────────────────
+function renderChart(weeks) {
+  const labels = weeks.map(w => isoWeekLabel(w.year, w.week));
+  const expected = weeks.map(w => w.expected_cases);
+  const lower    = weeks.map(w => w.lower_cases);
+  const upper    = weeks.map(w => w.upper_cases);
+
+  // Error bar as +/- from expected
+  const errorPlus  = upper.map((u, i) => u - expected[i]);
+  const errorMinus = expected.map((e, i) => e - lower[i]);
+
+  if (_chartInstance) {
+    _chartInstance.data.labels = labels;
+    _chartInstance.data.datasets[0].data = expected;
+    _chartInstance.data.datasets[1].data = upper;
+    _chartInstance.data.datasets[2].data = lower;
+    _chartInstance.update('active');
+    return;
+  }
+
+  const ctx = el('forecastChart').getContext('2d');
+
+  // Gradient fill — blue accent matching light theme
+  const grad = ctx.createLinearGradient(0, 0, 0, 166);
+  grad.addColorStop(0, 'rgba(37,99,235,0.80)');
+  grad.addColorStop(1, 'rgba(14,165,233,0.45)');
+
+  _chartInstance = new Chart(ctx, {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [
+        {
+          label: 'Expected',
+          data: expected,
+          backgroundColor: grad,
+          borderColor: 'rgba(37,99,235,0.9)',
+          borderWidth: 1,
+          borderRadius: 5,
+          borderSkipped: false,
+          order: 2,
+        },
+        {
+          label: 'Upper',
+          data: upper,
+          type: 'line',
+          fill: '+1',
+          borderColor: 'rgba(37,99,235,0.22)',
+          backgroundColor: 'rgba(37,99,235,0.06)',
+          borderWidth: 1.5,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          tension: 0.4,
+          order: 1,
+        },
+        {
+          label: 'Lower',
+          data: lower,
+          type: 'line',
+          fill: false,
+          borderColor: 'rgba(34,211,238,0.28)',
+          borderWidth: 1.5,
+          borderDash: [4, 3],
+          pointRadius: 0,
+          tension: 0.4,
+          order: 1,
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      interaction: { mode: 'index', intersect: false },
+      animation: { duration: 700, easing: 'easeOutQuart' },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: 'rgba(255,255,255,0.98)',
+          titleColor: '#1a2740',
+          bodyColor: '#4a6480',
+          borderColor: 'rgba(148,174,208,0.4)',
+          borderWidth: 1,
+          padding: 10,
+          callbacks: {
+            label: ctx => {
+              if (ctx.datasetIndex === 0) return ` Expected: ${fmt(ctx.parsed.y, 1)} cases`;
+              if (ctx.datasetIndex === 1) return ` Upper CI: ${fmt(ctx.parsed.y, 1)}`;
+              return ` Lower CI: ${fmt(ctx.parsed.y, 1)}`;
+            },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { color: 'rgba(148,174,208,0.18)' },
+          ticks: { color: '#8aa0bb', font: { size: 10 } },
+          border: { color: 'rgba(148,174,208,0.25)' },
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: 'rgba(148,174,208,0.18)' },
+          ticks: {
+            color: '#8aa0bb',
+            font: { size: 10 },
+            maxTicksLimit: 5,
+            callback: v => (Number.isInteger(v) ? v : ''),
+          },
+          border: { color: 'rgba(34,211,238,0.08)' },
+        },
+      },
+    },
+  });
+}
+
+// ── Render: UC List ───────────────────────────────────
+function renderUcList(rows) {
+  const container = el('topUcRows');
+  const filtered = rows
+    .filter(r => r.tehsil === 'Rawalpindi Tehsil')
+    .slice(0, 12);
+
+  container.innerHTML = filtered
+    .map((row, i) => {
+      const level = row.alert.toLowerCase();
+      const color = alertColor(row.alert);
+      const delay = i * 40; // stagger animation
+      return `
+        <div class="uc-row is-${level}" role="listitem" style="animation-delay:${delay}ms">
+          <div class="uc-rank" style="background:${color}">${i + 1}</div>
+          <div class="uc-info">
             <strong>${row.uc}</strong>
-            <span>${row.alert} · ${fmt(row.expected_cases, 2)} expected cases</span>
+            <span>${fmt(row.expected_cases, 2)} exp · ${fmt(row.historical_cases, 0)} hist</span>
           </div>
-        </div>`
-    )
-    .join("");
+          <span class="uc-badge badge-${level}">${row.alert}</span>
+        </div>`;
+    })
+    .join('');
 }
 
-function renderWeeks(rows) {
-  document.getElementById("weekCards").innerHTML = rows
-    .map(
-      (row) => `
-        <div class="week-card">
-          <div>
-            <strong>${isoWeekRange(row.year, row.week)}</strong><br>
-            <span>${fmt(row.lower_cases)} to ${fmt(row.upper_cases)} range</span>
-          </div>
-          <strong>${fmt(row.expected_cases)}</strong>
-        </div>`
-    )
-    .join("");
-}
-
-function renderModels(rows) {
-  document.getElementById("modelGrid").innerHTML = rows
-    .map(
-      (row) => `
-        <div class="model-card">
-          <div>
-            <strong>${row.model}</strong><br>
-            <span>MAE ${fmt(row.mae, 2)} · sMAPE ${fmt(row.smape, 1)}%</span>
-          </div>
-          <strong>${fmt(row.rmse, 2)}</strong>
-        </div>`
-    )
-    .join("");
-}
-
+// ── Render: Map ───────────────────────────────────────
 function renderMap(geojson) {
-  const cityBounds = {
-    south: 33.48,
-    west: 72.94,
-    north: 33.67,
-    east: 73.16,
-  };
-
-  function featureIntersectsCity(feature) {
-    const points = [];
-    const geometry = feature.geometry;
-    if (geometry.type === "Polygon") {
-      geometry.coordinates.forEach((ring) => ring.forEach(([lon, lat]) => points.push({ lon, lat })));
-    } else if (geometry.type === "MultiPolygon") {
-      geometry.coordinates.forEach((poly) =>
-        poly.forEach((ring) => ring.forEach(([lon, lat]) => points.push({ lon, lat })))
-      );
+  if (_mapInstance) {
+    // Update existing layers on auto-refresh without resetting map view
+    if (_geojsonLayer) {
+      _geojsonLayer.remove();
     }
-    if (!points.length) return false;
-    const west = Math.min(...points.map((p) => p.lon));
-    const east = Math.max(...points.map((p) => p.lon));
-    const south = Math.min(...points.map((p) => p.lat));
-    const north = Math.max(...points.map((p) => p.lat));
-    return east >= cityBounds.west && west <= cityBounds.east &&
-      north >= cityBounds.south && south <= cityBounds.north;
+  } else {
+    _mapInstance = L.map('map', {
+      center: [33.575, 73.045],
+      zoom: 12,
+      zoomControl: false,
+      scrollWheelZoom: true,
+      doubleClickZoom: true,
+      touchZoom: true,
+      dragging: true,
+      minZoom: 10,
+      maxZoom: 18,
+    });
+
+    L.control.zoom({ position: 'bottomright' }).addTo(_mapInstance);
+    L.control.scale({ position: 'bottomright', imperial: false, maxWidth: 90 }).addTo(_mapInstance);
+
+    // CartoDB Positron — clean light tiles, perfect for a light theme
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org">OSM</a> &copy; <a href="https://carto.com">CARTO</a>',
+      subdomains: 'abcd',
+      maxZoom: 19,
+    }).addTo(_mapInstance);
   }
 
-  const visibleGeojson = {
-    ...geojson,
-    features: geojson.features.filter((feature) =>
-      feature.properties.tehsil === "Rawalpindi Tehsil" && featureIntersectsCity(feature)
-    ),
-  };
-  const alertFeatures = visibleGeojson.features.filter(
-    (feature) => feature.properties.alert !== "Green"
+  // Filter to Rawalpindi Tehsil + within city bounds
+  function featureInBounds(f) {
+    const coords = [];
+    const g = f.geometry;
+    if (g.type === 'Polygon') g.coordinates.forEach(r => r.forEach(([lon,lat]) => coords.push({lon,lat})));
+    else if (g.type === 'MultiPolygon') g.coordinates.forEach(p => p.forEach(r => r.forEach(([lon,lat]) => coords.push({lon,lat}))));
+    if (!coords.length) return false;
+    const w = Math.min(...coords.map(p => p.lon));
+    const e = Math.max(...coords.map(p => p.lon));
+    const s = Math.min(...coords.map(p => p.lat));
+    const n = Math.max(...coords.map(p => p.lat));
+    return e >= CITY_BOUNDS.west && w <= CITY_BOUNDS.east &&
+           n >= CITY_BOUNDS.south && s <= CITY_BOUNDS.north;
+  }
+
+  const visibleFeatures = geojson.features.filter(
+    f => f.properties.tehsil === 'Rawalpindi Tehsil' && featureInBounds(f)
   );
 
-  const map = L.map("map", {
-    center: [33.58, 73.05],
-    zoom: 12,
-    zoomControl: false,
-    scrollWheelZoom: false,
-    doubleClickZoom: true,
-    touchZoom: true,
-    dragging: true,
-    maxBounds: [
-      [33.46, 72.91],
-      [33.69, 73.18],
-    ],
-    maxBoundsViscosity: 0.7,
-  });
+  const visibleGeoJson = { ...geojson, features: visibleFeatures };
 
-  L.control.zoom({ position: "bottomright" }).addTo(map);
-
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-    attribution: "&copy; OSM &copy; CartoDB",
-    subdomains: "abcd",
-    maxZoom: 19,
-  }).addTo(map);
-
-  function style(feature) {
-    const color = alertColor(feature.properties.alert);
-    if (feature.properties.alert === "Green") {
-      return {
-        color: "#c8d2dc",
-        weight: 0.65,
-        fillColor: "#f7fafc",
-        fillOpacity: 0.18,
-        opacity: 0.8,
-      };
+  function featureStyle(feature) {
+    const a = feature.properties.alert;
+    const color = alertColor(a);
+    if (a === 'Green') {
+      return { color: '#a7f3d0', weight: 1, fillColor: '#d1fae5', fillOpacity: 0.55, opacity: 1 };
     }
+    const fills    = { Yellow: '#fef3c7', Orange: '#ffedd5', Red: '#fee2e2' };
+    const strokes  = { Yellow: '#fbbf24', Orange: '#fb923c', Red: '#f87171' };
+    const opacities= { Yellow: 0.72, Orange: 0.78, Red: 0.82 };
+    const weights  = { Yellow: 1.5, Orange: 2.0, Red: 2.5 };
     return {
-      color: feature.properties.alert === "Red" ? "#9f2922" : "#ffffff",
-      weight: feature.properties.alert === "Red" ? 2.2 : 1.2,
-      fillColor: color,
-      fillOpacity: feature.properties.alert === "Yellow" ? 0.42 : 0.58,
-      opacity: 0.95,
+      color:       strokes[a]   || color,
+      weight:      weights[a]   || 1.5,
+      fillColor:   fills[a]     || color,
+      fillOpacity: opacities[a] || 0.5,
+      opacity: 1,
     };
   }
 
-  const layer = L.geoJSON(visibleGeojson, {
-    style,
-    onEachFeature: (feature, lyr) => {
+  _geojsonLayer = L.geoJSON(visibleGeoJson, {
+    style: featureStyle,
+    onEachFeature: (feature, layer) => {
       const p = feature.properties;
-      lyr.bindPopup(`
+      const color = alertColor(p.alert);
+      layer.bindPopup(`
         <strong>${p.uc}</strong><br>
         ${p.tehsil}<br>
-        Alert: <strong style="color:${alertColor(p.alert)}">${p.alert}</strong><br>
+        Alert: <strong style="color:${color}">${p.alert}</strong><br>
         Expected: <strong>${fmt(p.expected_cases, 2)}</strong> reported cases<br>
-        Historical mapped cases: ${fmt(p.historical_cases, 0)}
+        Historical burden: ${fmt(p.historical_cases, 0)} total cases
       `);
-      lyr.on("mouseover", () => lyr.setStyle({ weight: 2.4, color: "#1f2937", fillOpacity: 0.74 }));
-      lyr.on("mouseout", () => layer.resetStyle(lyr));
+      layer.on('mouseover', () => layer.setStyle({ weight: 3, color: '#1e40af', fillOpacity: 0.92 }));
+      layer.on('mouseout', () => _geojsonLayer.resetStyle(layer));
     },
-  }).addTo(map);
+  }).addTo(_mapInstance);
 
-  const rankedLayers = [];
-  layer.eachLayer((lyr) => {
-    const p = lyr.feature.properties;
-    rankedLayers.push({ lyr, expected: Number(p.expected_cases || 0), alert: p.alert });
-  });
-
-  const rankedAlertLayers = rankedLayers
-    .filter(({ alert }) => alert === "Red" || alert === "Orange")
-    .sort((a, b) => {
-      const priority = { Red: 2, Orange: 1, Yellow: 0, Green: -1 };
-      return priority[b.alert] - priority[a.alert] || b.expected - a.expected;
+  // Add numbered pins for top Red/Orange UCs
+  const ranked = visibleFeatures
+    .filter(f => ['Red','Orange'].includes(f.properties.alert))
+    .sort((a,b) => {
+      const order = { Red:2, Orange:1 };
+      return (order[b.properties.alert]||0) - (order[a.properties.alert]||0) ||
+             (b.properties.expected_cases||0) - (a.properties.expected_cases||0);
     })
     .slice(0, 10);
 
-  rankedAlertLayers
-    .forEach(({ lyr }, index) => {
-      const p = lyr.feature.properties;
-      const center = lyr.getBounds().getCenter();
-      const color = alertColor(p.alert);
-      const icon = L.divIcon({
-        className: "",
-        html: `<div class="alert-pin" style="background:${color};--pin-color:${color}" aria-label="Priority ${index + 1}: ${p.uc}">${index + 1}</div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-      });
-      const marker = L.marker(center, { icon, interactive: true, zIndexOffset: 600 })
-        .bindPopup(`
-          <strong>${index + 1}. ${p.uc}</strong><br>
-          ${p.tehsil}<br>
-          Alert: <strong style="color:${color}">${p.alert}</strong><br>
-          Expected: <strong>${fmt(p.expected_cases, 2)}</strong> reported cases
-        `)
-        .addTo(map);
-      marker.bindTooltip(`${p.uc} · ${fmt(p.expected_cases, 1)} expected`, {
-        direction: "top",
-        offset: [0, -16],
-        className: "uc-map-label",
-      });
+  ranked.forEach((feature, i) => {
+    const p = feature.properties;
+    const color = alertColor(p.alert);
+    const pulse = alertPulse(p.alert);
+    const bounds = L.geoJSON(feature).getBounds();
+    const center = bounds.getCenter();
+
+    const icon = L.divIcon({
+      className: '',
+      html: `<div class="alert-pin" style="background:${color};--pulse-color:${pulse}" aria-label="Risk rank ${i+1}: ${p.uc}">${i+1}</div>`,
+      iconSize: [30, 30],
+      iconAnchor: [15, 15],
     });
 
-  const focusLayer = layer;
-  const isSmall = window.matchMedia("(max-width: 720px)").matches;
-  map.fitBounds(focusLayer.getBounds().pad(0.06), {
-    paddingTopLeft: isSmall ? [24, 24] : [54, 38],
-    paddingBottomRight: isSmall ? [24, 84] : [90, 72],
-    animate: false,
+    L.marker(center, { icon, zIndexOffset: 1000 })
+      .bindPopup(`
+        <strong>${i+1}. ${p.uc}</strong><br>
+        Alert: <strong style="color:${color}">${p.alert}</strong><br>
+        Expected: <strong>${fmt(p.expected_cases, 2)}</strong> reported cases
+      `)
+      .bindTooltip(`${p.uc} · ${fmt(p.expected_cases, 1)} exp`, {
+        className: 'uc-map-tooltip',
+        direction: 'top',
+        offset: [0, -18],
+      })
+      .addTo(_mapInstance);
   });
-  // Keep the first view on the city itself; users can zoom out when they need context.
-  map.setView([33.575, 73.045], isSmall ? 12.45 : 12.8, { animate: false });
-  map.setMaxBounds(layer.getBounds().pad(0.2));
-  L.control.scale({ position: "bottomright", imperial: false, maxWidth: 90 }).addTo(map);
+
+  // ── Smart initial fit: frame Rawalpindi city perfectly on every screen ──
+  // Only runs on first load — auto-refresh updates layers without resetting the view
+  try {
+    if (!_mapInstance._rawalpindiInitialFitDone && visibleFeatures.length > 0) {
+      _mapInstance._rawalpindiInitialFitDone = true;
+
+      const mapEl = document.getElementById('map');
+      const mapW  = mapEl ? mapEl.offsetWidth : window.innerWidth;
+
+      // Responsive padding: comfortable breathing room on all screen sizes
+      let padTop, padRight, padBottom, padLeft;
+      if (mapW >= 1100) {
+        // Desktop: wide map panel, generous padding
+        padTop = 44; padRight = 52; padBottom = 68; padLeft = 44;
+      } else if (mapW >= 640) {
+        // Tablet: full-width map above sidebar
+        padTop = 30; padRight = 44; padBottom = 60; padLeft = 44;
+      } else {
+        // Mobile: tight but usable
+        padTop = 14; padRight = 14; padBottom = 52; padLeft = 14;
+      }
+
+      _mapInstance.fitBounds(_geojsonLayer.getBounds(), {
+        paddingTopLeft:     [padLeft,  padTop],
+        paddingBottomRight: [padRight, padBottom],
+        animate: false,
+        maxZoom: 13,
+      });
+
+      // Clamp zoom: always show the whole city (≥11) but never too close (≤13)
+      const z = _mapInstance.getZoom();
+      if (z < 11) _mapInstance.setZoom(11, { animate: false });
+      if (z > 13) _mapInstance.setZoom(13, { animate: false });
+
+      // Restrict pan so user stays near Rawalpindi
+      _mapInstance.setMaxBounds(_geojsonLayer.getBounds().pad(0.4));
+    }
+  } catch (_) { /* ignore if layer is empty */ }
 }
 
-async function main() {
+
+// ── Refresh Ring ──────────────────────────────────────
+function startRefreshRing() {
+  const ring = el('refreshRing');
+  if (!ring) return;
+  ring.addEventListener('click', () => {
+    ring.classList.add('spinning');
+    loadAndRender().finally(() => {
+      setTimeout(() => ring.classList.remove('spinning'), 600);
+    });
+  });
+}
+
+// ── Auto-Refresh ──────────────────────────────────────
+function scheduleAutoRefresh() {
+  if (_refreshTimer) clearInterval(_refreshTimer);
+  _refreshTimer = setInterval(() => {
+    loadAndRender().catch(console.warn);
+  }, REFRESH_INTERVAL_MS);
+}
+
+// ── Main Load ─────────────────────────────────────────
+async function loadAndRender() {
   const [forecast, geojson] = await Promise.all([
-    loadJson("data/latest_forecast.json"),
-    loadJson("data/rawalpindi_uc_forecast.geojson"),
+    loadJson(DATA_PATH_FORECAST),
+    loadJson(DATA_PATH_GEOJSON),
   ]);
+  _lastForecast = forecast;
   renderSummary(forecast);
-  renderTopUcs(forecast.top_ucs);
-  renderWeeks(forecast.weekly_forecasts);
-  renderModels(forecast.model_comparison);
+  renderChart(forecast.weekly_forecasts);
+  renderUcList(forecast.top_ucs);
   renderMap(geojson);
 }
 
-main().catch((err) => {
-  document.body.innerHTML = `<pre style="padding:24px;color:#991b1b">${err.message}</pre>`;
-});
+// ── Bootstrap ─────────────────────────────────────────
+(async function main() {
+  startRefreshRing();
+
+  try {
+    await loadAndRender();
+    scheduleAutoRefresh();
+  } catch (err) {
+    console.error('Dengue Alert App failed to load:', err);
+    document.getElementById('appMain').innerHTML = `
+      <div style="grid-column:1/-1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;padding:40px;text-align:center;">
+        <div style="font-size:48px">⚠️</div>
+        <h2 style="color:#ef4444;font-family:'Barlow Condensed',sans-serif;font-size:24px">Could not load forecast data</h2>
+        <p style="color:#8da3c0;max-width:400px;line-height:1.6">
+          The forecast data files could not be loaded.<br>
+          Run <code style="color:#f97316">python src/build_alert_outputs.py</code> first,
+          then serve from the <code style="color:#f97316">app/</code> folder.
+        </p>
+        <p style="color:#4d6a8a;font-size:12px">${err.message}</p>
+      </div>`;
+  }
+})();
