@@ -177,6 +177,53 @@ h2 {
   line-height: 1;
 }
 
+.model-alert {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 7px;
+  padding: 4px 8px;
+  border: 1px solid #cbd5df;
+  border-radius: 999px;
+  background: #f1f5f7;
+  color: #526579 !important;
+  font-size: 11px !important;
+  font-weight: 800;
+  line-height: 1.1;
+}
+
+.model-alert::before {
+  content: "";
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.model-alert.green {
+  border-color: #b9ddca;
+  background: #edf9f1;
+  color: #23734f !important;
+}
+
+.model-alert.yellow {
+  border-color: #e4d08a;
+  background: #fff9e7;
+  color: #866b13 !important;
+}
+
+.model-alert.orange {
+  border-color: #efc1a5;
+  background: #fff2e9;
+  color: #a84e21 !important;
+}
+
+.model-alert.red {
+  border-color: #e7b4b0;
+  background: #fff0ef;
+  color: #9e2925 !important;
+}
+
 .risk-total {
   max-width: 260px;
   text-align: right;
