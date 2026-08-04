@@ -188,7 +188,7 @@ def main() -> None:
         "generated_at": datetime.now().isoformat(timespec="seconds"),
         "forecast_note": "Forecasts are refreshed automatically from the trained Gradient Boosting model. UC values are spatial risk allocation estimates.",
         "weather_status": weather_status,
-        "surveillance_status": "No live UC-level dengue surveillance feed is connected. Recent case lags use seasonal Rawalpindi history; this is a model alert, not confirmed case reporting.",
+        "surveillance_status": "This alert is generated from the Rawalpindi dengue training dataset and fresh weather. No external dengue dashboard or case feed is used.",
         "selected_model": {"name": "Gradient Boosting", "rolling_origin_mean_rmse": 73.822, "rolling_origin_mean_mae": 14.609, "rolling_origin_mean_smape": 45.967, "rolling_origin_mean_r2": 0.753},
         "model_comparison": [], "external_2025_validation": {}, "weekly_forecasts": weekly, "top_ucs": top_ucs,
         "alert_counts": dict(pd.Series([r["alert"] for r in top_ucs]).value_counts()),

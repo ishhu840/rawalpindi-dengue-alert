@@ -118,7 +118,7 @@ Gradient Boosting.
 
 Important limitation:
 
-The prototype does not yet have a live 2026 dengue surveillance feed. Recent unknown case-lag features therefore fall back to historical Rawalpindi seasonal baselines. The weather feed uses Open-Meteo recent and forecast weather when available.
+The live updater uses the Rawalpindi dengue training dataset packaged in this project and fresh Open-Meteo weather. Recent unknown case-lag features use historical Rawalpindi seasonal baselines; no external dengue dashboard is part of the application.
 
 ## How To Run Locally
 
