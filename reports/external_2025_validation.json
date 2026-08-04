@@ -1,0 +1,58 @@
+{
+  "model": "Gradient Boosting",
+  "rmse": 61.665,
+  "mae": 49.352,
+  "smape": 18.819,
+  "r2": -0.5953,
+  "weeks": [
+    {
+      "year": 2025,
+      "week": 36,
+      "actual_cases": 159,
+      "predicted_cases": 206,
+      "error": 47
+    },
+    {
+      "year": 2025,
+      "week": 37,
+      "actual_cases": 190,
+      "predicted_cases": 182,
+      "error": -8
+    },
+    {
+      "year": 2025,
+      "week": 38,
+      "actual_cases": 222,
+      "predicted_cases": 264,
+      "error": 42
+    },
+    {
+      "year": 2025,
+      "week": 39,
+      "actual_cases": 276,
+      "predicted_cases": 268,
+      "error": -8
+    },
+    {
+      "year": 2025,
+      "week": 40,
+      "actual_cases": 301,
+      "predicted_cases": 352,
+      "error": 51
+    },
+    {
+      "year": 2025,
+      "week": 41,
+      "actual_cases": 270,
+      "predicted_cases": 395,
+      "error": 125
+    },
+    {
+      "year": 2025,
+      "week": 42,
+      "actual_cases": 195,
+      "predicted_cases": 260,
+      "error": 65
+    }
+  ]
+}

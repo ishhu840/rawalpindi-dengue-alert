@@ -1,0 +1,314 @@
+{
+  "generated_at": "2026-08-04T18:20:51",
+  "forecast_note": "Forecasts represent expected reported dengue cases. UC values are spatial risk allocation estimates.",
+  "weather_status": "Open-Meteo recent and forecast weather used",
+  "surveillance_status": "No live 2026 dengue surveillance feed is connected yet; unknown recent case lags use historical seasonal Rawalpindi baselines.",
+  "selected_model": {
+    "name": "Gradient Boosting",
+    "rolling_origin_mean_rmse": 73.822,
+    "rolling_origin_mean_mae": 14.609,
+    "rolling_origin_mean_smape": 45.967,
+    "rolling_origin_mean_r2": 0.753
+  },
+  "model_comparison": [
+    {
+      "model": "Gradient Boosting",
+      "rmse": 73.822,
+      "mae": 14.609,
+      "smape": 45.967,
+      "r2": 0.753
+    },
+    {
+      "model": "Random Forest",
+      "rmse": 76.85,
+      "mae": 15.229,
+      "smape": 47.49,
+      "r2": 0.732
+    },
+    {
+      "model": "Extra Trees",
+      "rmse": 79.735,
+      "mae": 16.1,
+      "smape": 47.11,
+      "r2": 0.731
+    },
+    {
+      "model": "Hist Gradient Boosting",
+      "rmse": 93.062,
+      "mae": 18.526,
+      "smape": 47.186,
+      "r2": 0.65
+    }
+  ],
+  "external_2025_validation": {
+    "model": "Gradient Boosting",
+    "rmse": 61.665,
+    "mae": 49.352,
+    "smape": 18.819,
+    "r2": -0.5953,
+    "weeks": [
+      {
+        "year": 2025,
+        "week": 36,
+        "actual_cases": 159,
+        "predicted_cases": 206,
+        "error": 47
+      },
+      {
+        "year": 2025,
+        "week": 37,
+        "actual_cases": 190,
+        "predicted_cases": 182,
+        "error": -8
+      },
+      {
+        "year": 2025,
+        "week": 38,
+        "actual_cases": 222,
+        "predicted_cases": 264,
+        "error": 42
+      },
+      {
+        "year": 2025,
+        "week": 39,
+        "actual_cases": 276,
+        "predicted_cases": 268,
+        "error": -8
+      },
+      {
+        "year": 2025,
+        "week": 40,
+        "actual_cases": 301,
+        "predicted_cases": 352,
+        "error": 51
+      },
+      {
+        "year": 2025,
+        "week": 41,
+        "actual_cases": 270,
+        "predicted_cases": 395,
+        "error": 125
+      },
+      {
+        "year": 2025,
+        "week": 42,
+        "actual_cases": 195,
+        "predicted_cases": 260,
+        "error": 65
+      }
+    ]
+  },
+  "weekly_forecasts": [
+    {
+      "year": 2026,
+      "week": 33,
+      "expected_cases": 0.7,
+      "lower_cases": 0.5,
+      "upper_cases": 4.0
+    },
+    {
+      "year": 2026,
+      "week": 34,
+      "expected_cases": 2.4,
+      "lower_cases": 1.5,
+      "upper_cases": 6.4
+    },
+    {
+      "year": 2026,
+      "week": 35,
+      "expected_cases": 5.3,
+      "lower_cases": 3.4,
+      "upper_cases": 10.7
+    },
+    {
+      "year": 2026,
+      "week": 36,
+      "expected_cases": 6.3,
+      "lower_cases": 4.1,
+      "upper_cases": 12.1
+    }
+  ],
+  "top_ucs": [
+    {
+      "uc": "Dhoke Mangtal",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.13,
+      "historical_cases": 2465,
+      "alert": "Red"
+    },
+    {
+      "uc": "Dhamial",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.07,
+      "historical_cases": 1421,
+      "alert": "Red"
+    },
+    {
+      "uc": "Dhaman Syedan",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.06,
+      "historical_cases": 1075,
+      "alert": "Red"
+    },
+    {
+      "uc": "LAKKHAN",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.05,
+      "historical_cases": 1052,
+      "alert": "Red"
+    },
+    {
+      "uc": "Gulistan Colony",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.04,
+      "historical_cases": 670,
+      "alert": "Red"
+    },
+    {
+      "uc": "DHOK MUNSHI KHAN",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.03,
+      "historical_cases": 585,
+      "alert": "Red"
+    },
+    {
+      "uc": "KOTHA KALAN",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.03,
+      "historical_cases": 596,
+      "alert": "Red"
+    },
+    {
+      "uc": "CHAK JALAL DIN",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.03,
+      "historical_cases": 580,
+      "alert": "Red"
+    },
+    {
+      "uc": "RANIAL",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.02,
+      "historical_cases": 422,
+      "alert": "Orange"
+    },
+    {
+      "uc": "BANNI",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.02,
+      "historical_cases": 315,
+      "alert": "Orange"
+    },
+    {
+      "uc": "DHOK ALI AKBAR",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.02,
+      "historical_cases": 405,
+      "alert": "Orange"
+    },
+    {
+      "uc": "KHANA DAK",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.01,
+      "historical_cases": 151,
+      "alert": "Yellow"
+    },
+    {
+      "uc": "MILLAT COLONY",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.01,
+      "historical_cases": 125,
+      "alert": "Yellow"
+    },
+    {
+      "uc": "Jhanda Chichi",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.01,
+      "historical_cases": 145,
+      "alert": "Yellow"
+    },
+    {
+      "uc": "Waris Khan",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.01,
+      "historical_cases": 243,
+      "alert": "Orange"
+    },
+    {
+      "uc": "RAWALPINDI CANTT-9",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.01,
+      "historical_cases": 185,
+      "alert": "Yellow"
+    },
+    {
+      "uc": "WAH",
+      "tehsil": "Taxila Tehsil",
+      "expected_cases": 0.01,
+      "historical_cases": 153,
+      "alert": "Yellow"
+    },
+    {
+      "uc": "BEWAL",
+      "tehsil": "Gujar Khan Tehsil",
+      "expected_cases": 0.0,
+      "historical_cases": 7,
+      "alert": "Green"
+    },
+    {
+      "uc": "BHADANA",
+      "tehsil": "Gujar Khan Tehsil",
+      "expected_cases": 0.0,
+      "historical_cases": 1,
+      "alert": "Green"
+    },
+    {
+      "uc": "CHANGA BANGIAL",
+      "tehsil": "Gujar Khan Tehsil",
+      "expected_cases": 0.0,
+      "historical_cases": 1,
+      "alert": "Green"
+    },
+    {
+      "uc": "Daultala",
+      "tehsil": "Gujar Khan Tehsil",
+      "expected_cases": 0.0,
+      "historical_cases": 0,
+      "alert": "Green"
+    },
+    {
+      "uc": "DEVI",
+      "tehsil": "Gujar Khan Tehsil",
+      "expected_cases": 0.0,
+      "historical_cases": 3,
+      "alert": "Green"
+    },
+    {
+      "uc": "GHUNGRILA",
+      "tehsil": "Gujar Khan Tehsil",
+      "expected_cases": 0.0,
+      "historical_cases": 6,
+      "alert": "Green"
+    },
+    {
+      "uc": "GULIANA",
+      "tehsil": "Gujar Khan Tehsil",
+      "expected_cases": 0.0,
+      "historical_cases": 0,
+      "alert": "Green"
+    },
+    {
+      "uc": "JAND MEHLO",
+      "tehsil": "Gujar Khan Tehsil",
+      "expected_cases": 0.0,
+      "historical_cases": 0,
+      "alert": "Green"
+    }
+  ],
+  "alert_counts": {
+    "Red": 8,
+    "Green": 8,
+    "Yellow": 5,
+    "Orange": 4
+  }
+}
