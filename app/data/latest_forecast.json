@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-04T23:09:14",
+  "generated_at": "2026-08-04T23:17:34",
   "forecast_note": "Forecasts are refreshed automatically from the trained Gradient Boosting model. UC values are spatial risk allocation estimates.",
   "weather_status": "Fresh Open-Meteo history and forecast weather used",
   "surveillance_status": "This alert is generated from the Rawalpindi dengue training dataset and fresh weather. No external dengue dashboard or case feed is used.",
@@ -48,126 +48,126 @@
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.14,
       "historical_cases": 2465,
-      "alert": "Green"
+      "alert": "Red"
     },
     {
       "uc": "Dhamial",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.08,
       "historical_cases": 1421,
-      "alert": "Green"
+      "alert": "Red"
     },
     {
       "uc": "Dhaman Syedan",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.06,
       "historical_cases": 1075,
-      "alert": "Green"
+      "alert": "Red"
     },
     {
       "uc": "LAKKHAN",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.06,
       "historical_cases": 1052,
-      "alert": "Green"
+      "alert": "Red"
     },
     {
       "uc": "Gulistan Colony",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.04,
       "historical_cases": 670,
-      "alert": "Green"
+      "alert": "Red"
     },
     {
       "uc": "DHOK MUNSHI KHAN",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.03,
       "historical_cases": 585,
-      "alert": "Green"
+      "alert": "Red"
     },
     {
       "uc": "KOTHA KALAN",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.03,
       "historical_cases": 596,
-      "alert": "Green"
+      "alert": "Red"
     },
     {
       "uc": "CHAK JALAL DIN",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.03,
       "historical_cases": 580,
-      "alert": "Green"
+      "alert": "Red"
     },
     {
       "uc": "RANIAL",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.02,
       "historical_cases": 422,
-      "alert": "Green"
+      "alert": "Orange"
     },
     {
       "uc": "BANNI",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.02,
       "historical_cases": 315,
-      "alert": "Green"
+      "alert": "Orange"
     },
     {
       "uc": "DHOK ALI AKBAR",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.02,
       "historical_cases": 405,
-      "alert": "Green"
+      "alert": "Orange"
     },
     {
       "uc": "KHANA DAK",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.01,
       "historical_cases": 151,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "AMARPURA",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.01,
       "historical_cases": 91,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "KARTARPURA",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.01,
       "historical_cases": 92,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "MILLAT COLONY",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.01,
       "historical_cases": 125,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "Jhanda Chichi",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.01,
       "historical_cases": 145,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "Waris Khan",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.01,
       "historical_cases": 243,
-      "alert": "Green"
+      "alert": "Orange"
     },
     {
       "uc": "RAWALPINDI CANTT-9",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.01,
       "historical_cases": 185,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "Khurram Colony",
@@ -181,7 +181,7 @@
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.0,
       "historical_cases": 80,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "Adiala",
@@ -220,6 +220,9 @@
     }
   ],
   "alert_counts": {
-    "Green": 25
+    "Red": 8,
+    "Yellow": 7,
+    "Green": 6,
+    "Orange": 4
   }
 }

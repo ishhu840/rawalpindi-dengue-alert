@@ -159,9 +159,17 @@ def update_geojson(first_cases: float) -> dict:
     for feature, weight in zip(features, weights):
         props = feature["properties"]
         expected = first_cases * weight / total
+        historical = float(props.get("historical_cases", 0) or 0)
         props["expected_cases"] = round(expected, 2)
-        props["alert"] = "Red" if expected >= 8 else "Orange" if expected >= 4 else "Yellow" if expected >= 1.5 else "Green"
-        rows.append({"uc": props.get("uc", ""), "tehsil": props.get("tehsil", ""), "expected_cases": round(expected, 2), "historical_cases": props.get("historical_cases", 0), "alert": props["alert"]})
+        # Preserve the study's original UC risk logic: forecast burden and
+        # historical mapped burden both contribute to the alert color.
+        props["alert"] = (
+            "Red" if expected >= 8 or historical >= 500 else
+            "Orange" if expected >= 4 or historical >= 200 else
+            "Yellow" if expected >= 1.5 or historical >= 50 else
+            "Green"
+        )
+        rows.append({"uc": props.get("uc", ""), "tehsil": props.get("tehsil", ""), "expected_cases": round(expected, 2), "historical_cases": int(round(historical)), "alert": props["alert"]})
     result = {**source, "features": features}
     rows.sort(key=lambda r: r["expected_cases"], reverse=True)
     return result, rows[:25]
