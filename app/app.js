@@ -35,14 +35,30 @@ async function loadJson(path) {
 function renderSummary(data) {
   const first = data.weekly_forecasts[0];
   const period = isoWeekRange(first.year, first.week);
+  const alertRows = (data.top_ucs || []).filter((row) => ["Red", "Orange", "Yellow"].includes(row.alert));
+  const redRows = alertRows.filter((row) => row.alert === "Red");
+  const orangeRows = alertRows.filter((row) => row.alert === "Orange");
+  const alertNode = document.getElementById("modelAlert");
   document.getElementById("generatedAt").textContent =
     `Generated ${new Date(data.generated_at).toLocaleString()}`;
   document.getElementById("forecastPeriodLabel").textContent = `Next week: ${period}`;
   document.getElementById("expectedCases").textContent = fmt(first.expected_cases);
   document.getElementById("forecastRange").textContent =
     `${fmt(first.lower_cases)} to ${fmt(first.upper_cases)} reported cases expected overall`;
-  document.getElementById("redCount").textContent =
-    String((data.alert_counts && data.alert_counts.Red) || 0);
+  document.getElementById("redCount").textContent = String(alertRows.length);
+  if (redRows.length) {
+    alertNode.textContent = `High alert: ${redRows.length} UC${redRows.length === 1 ? "" : "s"}`;
+    alertNode.className = "model-alert red";
+  } else if (orangeRows.length) {
+    alertNode.textContent = `Elevated: ${orangeRows.length} UC${orangeRows.length === 1 ? "" : "s"}`;
+    alertNode.className = "model-alert orange";
+  } else if (alertRows.length) {
+    alertNode.textContent = `Watch: ${alertRows.length} UC${alertRows.length === 1 ? "" : "s"}`;
+    alertNode.className = "model-alert yellow";
+  } else {
+    alertNode.textContent = "No elevated UC alert this week";
+    alertNode.className = "model-alert green";
+  }
   document.getElementById("weatherStatus").textContent =
     data.weather_status.includes("used") ? "Connected" : "Fallback";
   document.getElementById("surveillanceStatus").textContent =

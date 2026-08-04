@@ -29,6 +29,7 @@
           <div>
             <span id="forecastPeriodLabel">Next week</span>
             <strong><span id="expectedCases">--</span> expected cases</strong>
+            <span class="model-alert neutral" id="modelAlert">Checking UC alert status</span>
           </div>
           <div class="risk-total">
             <span id="forecastRange">--</span>
@@ -46,7 +47,7 @@
       <aside class="inspector" aria-label="Forecast details">
         <section class="summary-card">
           <div>
-            <span>Red Alert UCs</span>
+            <span>Model Alert UCs</span>
             <strong id="redCount">--</strong>
           </div>
           <div>
@@ -57,8 +58,8 @@
 
         <section class="panel">
           <div class="panel-title">
-            <h2>Priority Union Councils</h2>
-            <p>Numbers match the alert pins shown on the map.</p>
+            <h2>UC-wise forecast</h2>
+            <p>Expected cases next week. Numbers match the map pins.</p>
           </div>
           <div class="priority-list" id="topUcRows"></div>
         </section>
