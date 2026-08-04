@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-04T23:04:37",
+  "generated_at": "2026-08-04T22:06:07",
   "forecast_note": "Forecasts are refreshed automatically from the trained Gradient Boosting model. UC values are spatial risk allocation estimates.",
   "weather_status": "Fresh Open-Meteo history and forecast weather used",
   "surveillance_status": "No live UC-level dengue surveillance feed is connected. Recent case lags use seasonal Rawalpindi history; this is a model alert, not confirmed case reporting.",
