@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rawalpindi Dengue Early Alert</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=Manrope:wght@700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="app-header">
+      <div class="brand">
+        <p class="eyebrow">Dengue Early Warning</p>
+        <h1>Rawalpindi UC Alert</h1>
+      </div>
+      <div class="header-actions">
+        <div class="status-pill" id="weatherStatus">Weather</div>
+        <div class="status-pill quiet" id="generatedAt">Loading</div>
+      </div>
+    </header>
+
+    <section class="app-grid">
+      <section class="map-card" aria-label="Rawalpindi UC alert map">
+        <div class="map-toolbar">
+          <div>
+            <span id="forecastPeriodLabel">Next week</span>
+            <strong><span id="expectedCases">--</span> expected cases</strong>
+          </div>
+          <div class="risk-total">
+            <span id="forecastRange">--</span>
+          </div>
+        </div>
+        <div id="map"></div>
+        <div class="legend" aria-label="Alert legend">
+          <div><span class="sw quiet"></span>Low boundary</div>
+          <div><span class="sw yellow"></span>Elevated</div>
+          <div><span class="sw orange"></span>High</div>
+          <div><span class="sw red"></span>Outbreak alert</div>
+        </div>
+      </section>
+
+      <aside class="inspector" aria-label="Forecast details">
+        <section class="summary-card">
+          <div>
+            <span>Red Alert UCs</span>
+            <strong id="redCount">--</strong>
+          </div>
+          <div>
+            <span>Visible Area</span>
+            <strong>Rawalpindi city</strong>
+          </div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Priority Union Councils</h2>
+            <p>Numbers match the alert pins shown on the map.</p>
+          </div>
+          <div class="priority-list" id="topUcRows"></div>
+        </section>
+
+        <section class="panel">
+          <div class="panel-title">
+            <h2>Upcoming Weeks</h2>
+            <p>Overall reported-case forecast for Rawalpindi.</p>
+          </div>
+          <div class="weeks" id="weekCards"></div>
+        </section>
+
+        <section class="panel note">
+          <h2>Operational Note</h2>
+          <p id="surveillanceStatus"></p>
+        </section>
+
+        <div class="hidden-models" id="modelName"></div>
+        <div class="hidden-models" id="modelScore"></div>
+        <div class="hidden-models" id="externalScore"></div>
+        <div class="hidden-models" id="modelGrid"></div>
+      </aside>
+    </section>
+  </main>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
