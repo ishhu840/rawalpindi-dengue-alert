@@ -201,7 +201,7 @@ def main() -> None:
         "model_comparison": [], "external_2025_validation": {}, "weekly_forecasts": weekly, "top_ucs": top_ucs,
         "alert_counts": dict(pd.Series([r["alert"] for r in top_ucs]).value_counts()),
     }
-    for directory in (PUBLIC_DATA, APP_DATA):
+    for directory in (PUBLIC_DATA,):
         directory.mkdir(parents=True, exist_ok=True)
         (directory / "latest_forecast.json").write_text(
             json.dumps(payload, indent=2, default=lambda value: value.item() if hasattr(value, "item") else str(value)),
