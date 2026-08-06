@@ -1,0 +1,4 @@
+Model,RMSE,MAE,R²,MAPE (%),Correlation
+XGBoost,30.1,26.81,0.62,11.5,0.827
+Random Forest,50.06,37.74,-0.0514,15.2,0.6173
+LSTM,211.04,205.31,-17.6837,88.6,

@@ -167,20 +167,16 @@ function renderSummary(data) {
   animateCount(el('alertUcCount'), nRed + nOrange + nYellow, 600, 0);
   animateCount(el('redUcCount'), nRed, 600, 0);
 
-  // ── Model scores. The panel R² is optimistic; the 2025 external test is the
-  // number a reviewer will ask about, so show both.
+  // ── Model scores, from Study 1's held-out 2025 Rawalpindi validation.
   const model = data.selected_model || {};
-  const ext   = data.external_2025_validation || {};
-  el('modelR2').textContent = model.rolling_origin_mean_r2 != null
-    ? fmt(model.rolling_origin_mean_r2, 3)
-    : '—';
-  el('modelName').textContent = model.name || 'Gradient Boosting';
+  el('modelR2').textContent = model.r2 != null ? fmt(model.r2, 2) : '—';
+  el('modelName').textContent = model.name || 'XGBoost';
   const extEl = el('modelExternal');
   if (extEl) {
-    extEl.textContent = ext.r2 != null
-      ? `2025 external R² ${fmt(ext.r2, 2)} (${ext.weeks_evaluated || 0} wks)`
-      : 'no external test loaded';
-    extEl.className = 'kpi-foot' + (ext.r2 != null && ext.r2 < 0 ? ' is-negative' : '');
+    extEl.textContent = model.mape != null
+      ? `2025 held-out · MAPE ${fmt(model.mape, 1)}%`
+      : '—';
+    extEl.className = 'kpi-foot' + (model.r2 != null && model.r2 < 0 ? ' is-negative' : '');
   }
 
   // ── Case-data provenance: the single most important honesty signal.

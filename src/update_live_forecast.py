@@ -1,13 +1,20 @@
 #!/usr/bin/env python3
-"""Refresh the public forecast using packaged training data and live weather.
+"""Refresh the public forecast using the Study 1 model and live weather.
 
-This updater is deliberately independent of the private study folders so it can
-run inside GitHub Actions.
+This runs the XGBoost model trained and validated in
+`Study # 1 Weekly_AI_Study_Rawapidni_Dengue_Forcast`, which won that study's
+held-out 2025 Rawalpindi test (RMSE 30.10, MAE 26.81, R2 0.620, MAPE 11.5%).
+The saved estimator and scaler are vendored under models/ so CI does not need
+the study folder. Nothing is retrained here -- the published app and the study
+are the same model.
 
-Recent case lags are the dominant predictor, so they are resolved in priority
-order: observed surveillance counts from data/recent_cases.csv, then the model's
-own nowcast for weeks after the last observation, then seasonal history as a
-last resort. Every published week records which basis it actually used.
+That validation supplied real observed counts for Cases_Lag_1w/2w/3w. Those
+lags dominate the model, so they are resolved in priority order: observed
+surveillance counts from data/recent_cases.csv, then the model's own nowcast
+for weeks after the last observation, then seasonal history as a last resort.
+Substituting seasonal history for all three takes the same model from R2 0.620
+to R2 -10.6 on the 2025 window, so every published week records which basis it
+actually used.
 """
 
 from __future__ import annotations
@@ -20,18 +27,20 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 import requests
-from sklearn.compose import ColumnTransformer
-from sklearn.ensemble import GradientBoostingRegressor
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import OneHotEncoder, StandardScaler
+import xgboost as xgb
 
 
 ROOT = Path(__file__).resolve().parents[1]
 TRAINING = ROOT / "data_processed" / "model_training_dataset_2013_2024.csv"
 PUBLIC_DATA = ROOT / "data"
 RECENT_CASES = PUBLIC_DATA / "recent_cases.csv"
-EXTERNAL_VALIDATION = ROOT / "reports" / "external_2025_validation.json"
+MODEL_DIR = ROOT / "models"
+STUDY_VALIDATION = ROOT / "reports" / "study1_2025_validation_metrics.csv"
 LAT, LON = 33.5651, 73.0169
+
+# Study 1's selected model and its held-out 2025 Rawalpindi scores.
+SELECTED_MODEL = "XGBoost"
+STUDY_SCORES = {"rmse": 30.10, "mae": 26.81, "r2": 0.620, "mape": 11.5, "weeks": 7}
 
 # UC alert thresholds on expected reported cases, calibrated from the historical
 # transmission-season distribution of allocated UC-week values (weeks 30-48,
@@ -43,12 +52,60 @@ UC_YELLOW, UC_ORANGE, UC_RED = 0.5, 3.0, 8.0
 # from its own output stops being meaningful and we fall back to seasonal history.
 MAX_NOWCAST_WEEKS = 8
 
-BASE_NUMERIC = [
-    "Temp_Avg", "Humidity_Avg", "Rainfall_Total", "Pressure_Avg", "WindSpeed_Avg",
-    "Cases_Lag_1w", "Cases_Lag_2w", "Cases_Lag_3w", "Temp_Avg_Lag_2w",
-    "Temp_Avg_Lag_3w", "Rainfall_Total_Lag_2w", "Rainfall_Total_Lag_3w",
-    "Week.1", "Month", "Population", "Week_Sin", "Week_Cos", "Monsoon",
-]
+def load_study_model() -> tuple[xgb.Booster, dict, list[str]]:
+    """Study 1's XGBoost, loaded from version-stable formats.
+
+    The study saved .joblib pickles, but those carry the scikit-learn and
+    XGBoost versions they were written with (1.6.1 / an older XGBoost) and warn
+    about invalid results when unpickled by newer ones. CI installs whatever is
+    current, so the booster is loaded from XGBoost's native JSON and the scaler
+    is reduced to its mean/scale arrays -- the transform is only (x - mean) / scale.
+    Both were exported from the original artifacts and reproduce the study's
+    published 2025 metrics exactly.
+    """
+    booster = xgb.Booster()
+    booster.load_model(str(MODEL_DIR / "xgb_model.json"))
+    scaler = json.loads((MODEL_DIR / "xgb_scaler.json").read_text(encoding="utf-8"))
+    return booster, scaler, list(scaler["features"])
+
+
+def best_iteration_range(booster: xgb.Booster) -> tuple[int, int]:
+    """Trees to score with.
+
+    Study 1 trained with early stopping: the booster holds 140 rounds but the
+    best iteration was 89. XGBRegressor.predict() truncates there automatically,
+    a raw Booster does not, and using all 140 shifts the 2025 validation from
+    R2 0.620 to 0.503. So the cut has to be applied explicitly.
+    """
+    best = booster.attributes().get("best_iteration")
+    return (0, int(best) + 1) if best is not None else (0, booster.num_boosted_rounds())
+
+
+def predict_cases(booster: xgb.Booster, scaler: dict, features: list[str], row: dict) -> float:
+    """One week-ahead prediction, back-transformed from log space and floored."""
+    values = np.array([[float(row[f]) for f in features]], dtype=float)
+    scaled = (values - np.asarray(scaler["mean"])) / np.asarray(scaler["scale"])
+    log_pred = booster.inplace_predict(scaled, iteration_range=best_iteration_range(booster))
+    return float(np.maximum(np.expm1(log_pred)[0], 0.0))
+
+
+def json_safe(value):
+    """Replace NaN/Infinity with null, recursively.
+
+    Python writes bare `NaN` into JSON, which is not valid JSON and makes the
+    browser's fetch().json() throw -- taking the whole page down, not just the
+    affected field. Study 1's metrics table has an empty Correlation cell for
+    LSTM, which arrives here as NaN.
+    """
+    if isinstance(value, dict):
+        return {k: json_safe(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [json_safe(v) for v in value]
+    if isinstance(value, float) and not math.isfinite(value):
+        return None
+    if isinstance(value, np.floating):
+        return None if not math.isfinite(float(value)) else float(value)
+    return value
 
 
 def week_add(year: int, week: int, offset: int) -> tuple[int, int]:
@@ -142,18 +199,19 @@ def load_observed_cases() -> dict[tuple[int, int], float]:
 
 def run_forecast(
     model,
+    scaler,
     feature_cols: list[str],
     hist: pd.DataFrame,
     weather: pd.DataFrame,
     observed: dict[tuple[int, int], float],
     horizon: int = 4,
 ) -> tuple[list[dict], dict]:
-    """Roll the model forward one week at a time.
+    """Roll Study 1's XGBoost forward one week at a time.
 
     Weeks between the last observation and the first published week are
-    nowcast so that Cases_Lag_1w -- which carries ~95% of the model's
-    importance -- is grounded in real data for as long as the surveillance
-    file allows, instead of jumping straight to a seasonal median.
+    nowcast so that Cases_Lag_1w -- the feature the study's 2025 validation
+    supplied from real surveillance -- is grounded in observed data for as
+    long as the file allows, instead of jumping straight to a seasonal median.
     """
     raw = hist[hist["City"].eq("Rawalpindi")].copy()
     seasonal = raw.groupby("Week").median(numeric_only=True)
@@ -206,10 +264,7 @@ def run_forecast(
     reached_target = False
     while True:
         monday = datetime.fromisocalendar(year, week, 1).date()
-        row = {
-            "City": "Rawalpindi", "Year": year, "Week": week, "Month": monday.month,
-            "Population": population,
-        }
+        row = {"Year": year, "Week": week, "Month": monday.month, "Population": population}
         for column in ["Temp_Avg", "Humidity_Avg", "Rainfall_Total", "Pressure_Avg", "WindSpeed_Avg"]:
             row[column] = value(year, week, column)
         bases = []
@@ -222,13 +277,8 @@ def run_forecast(
             lag_year, lag_week = week_add(year, week, -lag)
             row[f"Temp_Avg_Lag_{lag}w"] = value(lag_year, lag_week, "Temp_Avg")
             row[f"Rainfall_Total_Lag_{lag}w"] = value(lag_year, lag_week, "Rainfall_Total")
-        row["Week.1"] = week
-        row["Week_Sin"] = math.sin(2 * math.pi * week / 52)
-        row["Week_Cos"] = math.cos(2 * math.pi * week / 52)
-        row["Monsoon"] = int(row["Month"] in [7, 8, 9, 10])
 
-        frame = pd.DataFrame([row])
-        expected = float(np.maximum(np.expm1(model.predict(frame[feature_cols + ["City"]]))[0], 0.0))
+        expected = predict_cases(model, scaler, feature_cols, row)
         predicted[(year, week)] = expected
 
         reached_target = reached_target or (year, week) == (first_year, first_week)
@@ -315,15 +365,12 @@ def update_geojson(first_cases: float) -> tuple[dict, list[dict]]:
 def main() -> None:
     hist = pd.read_csv(TRAINING)
     hist = hist[hist["Cases_Raw"].notna()].copy()
-    features = [c for c in BASE_NUMERIC if c in hist.columns]
-    preprocessor = ColumnTransformer([("num", StandardScaler(), features), ("cat", OneHotEncoder(handle_unknown="ignore"), ["City"])])
-    model = make_pipeline(preprocessor, GradientBoostingRegressor(n_estimators=300, learning_rate=0.035, max_depth=3, min_samples_leaf=5, random_state=42))
-    model.fit(hist[features + ["City"]], hist["Cases_Log"])
+    model, scaler, features = load_study_model()
 
     horizon_end = date.today() + timedelta(days=45)
     weather, weather_status = fetch_weather(date.today() - timedelta(days=84), horizon_end)
     observed = load_observed_cases()
-    weekly, provenance = run_forecast(model, features, hist, weather, observed)
+    weekly, provenance = run_forecast(model, scaler, features, hist, weather, observed)
     geojson, top_ucs = update_geojson(weekly[0]["expected_cases"])
 
     if provenance["cases_through"]:
@@ -341,31 +388,36 @@ def main() -> None:
             "ground the forecast in reported cases."
         )
 
-    external = {}
-    if EXTERNAL_VALIDATION.exists():
-        report = json.loads(EXTERNAL_VALIDATION.read_text(encoding="utf-8"))
-        external = {k: report[k] for k in ("model", "rmse", "mae", "smape", "r2") if k in report}
-        external["weeks_evaluated"] = len(report.get("weeks", []))
+    external = {"model": SELECTED_MODEL, **STUDY_SCORES}
+    if STUDY_VALIDATION.exists():
+        table = pd.read_csv(STUDY_VALIDATION)
+        external["all_models"] = table.to_dict(orient="records")
 
     payload = {
         "generated_at": datetime.now().isoformat(timespec="seconds"),
-        "forecast_note": "Forecasts are expected reported dengue cases. UC values allocate the city forecast by historical burden share.",
+        "forecast_note": "Forecasts are expected reported dengue cases from the Study 1 XGBoost model. UC values allocate the city forecast by historical burden share.",
         "weather_status": weather_status,
         "surveillance_status": surveillance_status,
         "cases_through": provenance["cases_through"],
         "uc_thresholds": {"yellow": UC_YELLOW, "orange": UC_ORANGE, "red": UC_RED},
         "selected_model": {
-            "name": "Gradient Boosting",
-            "rolling_origin_mean_rmse": 73.822, "rolling_origin_mean_mae": 14.609,
-            "rolling_origin_mean_smape": 45.967, "rolling_origin_mean_r2": 0.753,
+            "name": SELECTED_MODEL,
+            "source": "Study 1 Weekly AI Dengue Forecast — saved model, not retrained",
+            "validation": "held-out 2025 Rawalpindi, weeks 36-42",
+            "rmse": STUDY_SCORES["rmse"], "mae": STUDY_SCORES["mae"],
+            "r2": STUDY_SCORES["r2"], "mape": STUDY_SCORES["mape"],
         },
-        "model_comparison": [], "external_2025_validation": external,
+        "model_comparison": external.get("all_models", []),
+        "external_2025_validation": external,
         "weekly_forecasts": weekly, "top_ucs": top_ucs,
         "alert_counts": dict(pd.Series([f["properties"]["alert"] for f in geojson["features"]]).value_counts()),
     }
     PUBLIC_DATA.mkdir(parents=True, exist_ok=True)
     (PUBLIC_DATA / "latest_forecast.json").write_text(
-        json.dumps(payload, indent=2, default=lambda value: value.item() if hasattr(value, "item") else str(value)),
+        json.dumps(
+            json_safe(payload), indent=2, allow_nan=False,
+            default=lambda value: value.item() if hasattr(value, "item") else str(value),
+        ),
         encoding="utf-8",
     )
     (PUBLIC_DATA / "rawalpindi_uc_forecast.geojson").write_text(json.dumps(geojson), encoding="utf-8")

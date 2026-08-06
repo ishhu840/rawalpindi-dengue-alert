@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-08-06T13:13:48",
-  "forecast_note": "Forecasts are expected reported dengue cases. UC values allocate the city forecast by historical burden share.",
+  "generated_at": "2026-08-06T15:11:57",
+  "forecast_note": "Forecasts are expected reported dengue cases from the Study 1 XGBoost model. UC values allocate the city forecast by historical burden share.",
   "weather_status": "Fresh Open-Meteo history and forecast weather used",
   "surveillance_status": "No observed case counts are loaded, so recent case lags fall back to historical seasonal baselines. Add rows to data/recent_cases.csv to ground the forecast in reported cases.",
   "cases_through": null,
@@ -10,28 +10,81 @@
     "red": 8.0
   },
   "selected_model": {
-    "name": "Gradient Boosting",
-    "rolling_origin_mean_rmse": 73.822,
-    "rolling_origin_mean_mae": 14.609,
-    "rolling_origin_mean_smape": 45.967,
-    "rolling_origin_mean_r2": 0.753
+    "name": "XGBoost",
+    "source": "Study 1 Weekly AI Dengue Forecast \u2014 saved model, not retrained",
+    "validation": "held-out 2025 Rawalpindi, weeks 36-42",
+    "rmse": 30.1,
+    "mae": 26.81,
+    "r2": 0.62,
+    "mape": 11.5
   },
-  "model_comparison": [],
+  "model_comparison": [
+    {
+      "Model": "XGBoost",
+      "RMSE": 30.1,
+      "MAE": 26.81,
+      "R\u00b2": 0.62,
+      "MAPE (%)": 11.5,
+      "Correlation": 0.827
+    },
+    {
+      "Model": "Random Forest",
+      "RMSE": 50.06,
+      "MAE": 37.74,
+      "R\u00b2": -0.0514,
+      "MAPE (%)": 15.2,
+      "Correlation": 0.6173
+    },
+    {
+      "Model": "LSTM",
+      "RMSE": 211.04,
+      "MAE": 205.31,
+      "R\u00b2": -17.6837,
+      "MAPE (%)": 88.6,
+      "Correlation": null
+    }
+  ],
   "external_2025_validation": {
-    "model": "Gradient Boosting",
-    "rmse": 61.665,
-    "mae": 49.352,
-    "smape": 18.819,
-    "r2": -0.5953,
-    "weeks_evaluated": 7
+    "model": "XGBoost",
+    "rmse": 30.1,
+    "mae": 26.81,
+    "r2": 0.62,
+    "mape": 11.5,
+    "weeks": 7,
+    "all_models": [
+      {
+        "Model": "XGBoost",
+        "RMSE": 30.1,
+        "MAE": 26.81,
+        "R\u00b2": 0.62,
+        "MAPE (%)": 11.5,
+        "Correlation": 0.827
+      },
+      {
+        "Model": "Random Forest",
+        "RMSE": 50.06,
+        "MAE": 37.74,
+        "R\u00b2": -0.0514,
+        "MAPE (%)": 15.2,
+        "Correlation": 0.6173
+      },
+      {
+        "Model": "LSTM",
+        "RMSE": 211.04,
+        "MAE": 205.31,
+        "R\u00b2": -17.6837,
+        "MAPE (%)": 88.6,
+        "Correlation": null
+      }
+    ]
   },
   "weekly_forecasts": [
     {
       "year": 2026,
       "week": 33,
-      "expected_cases": 0.7,
-      "lower_cases": 0.5,
-      "upper_cases": 4.0,
+      "expected_cases": 0.6,
+      "lower_cases": 0.4,
+      "upper_cases": 3.9,
       "seasonal_norm": 2.0,
       "cases_basis": "climatology",
       "weather_basis": "forecast"
@@ -39,9 +92,9 @@
     {
       "year": 2026,
       "week": 34,
-      "expected_cases": 1.5,
-      "lower_cases": 1.0,
-      "upper_cases": 5.2,
+      "expected_cases": 0.6,
+      "lower_cases": 0.4,
+      "upper_cases": 3.8,
       "seasonal_norm": 6.0,
       "cases_basis": "nowcast",
       "weather_basis": "partial"
@@ -49,9 +102,9 @@
     {
       "year": 2026,
       "week": 35,
-      "expected_cases": 1.8,
-      "lower_cases": 1.2,
-      "upper_cases": 5.6,
+      "expected_cases": 0.2,
+      "lower_cases": 0.1,
+      "upper_cases": 3.3,
       "seasonal_norm": 6.5,
       "cases_basis": "nowcast",
       "weather_basis": "climatology"
@@ -59,9 +112,9 @@
     {
       "year": 2026,
       "week": 36,
-      "expected_cases": 1.9,
-      "lower_cases": 1.2,
-      "upper_cases": 5.8,
+      "expected_cases": 0.3,
+      "lower_cases": 0.2,
+      "upper_cases": 3.4,
       "seasonal_norm": 16.5,
       "cases_basis": "nowcast",
       "weather_basis": "climatology"
@@ -71,7 +124,7 @@
     {
       "uc": "Dhoke Mangtal",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.14,
+      "expected_cases": 0.12,
       "historical_cases": 2465,
       "share_pct": 19.78,
       "alert": "Green"
@@ -79,7 +132,7 @@
     {
       "uc": "Dhamial",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.08,
+      "expected_cases": 0.07,
       "historical_cases": 1421,
       "share_pct": 11.41,
       "alert": "Green"
@@ -87,7 +140,7 @@
     {
       "uc": "Dhaman Syedan",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.06,
+      "expected_cases": 0.05,
       "historical_cases": 1075,
       "share_pct": 8.63,
       "alert": "Green"
@@ -95,7 +148,7 @@
     {
       "uc": "LAKKHAN",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.06,
+      "expected_cases": 0.05,
       "historical_cases": 1052,
       "share_pct": 8.45,
       "alert": "Green"
@@ -103,7 +156,7 @@
     {
       "uc": "Gulistan Colony",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.04,
+      "expected_cases": 0.03,
       "historical_cases": 670,
       "share_pct": 5.38,
       "alert": "Green"
@@ -162,22 +215,6 @@
       "expected_cases": 0.01,
       "historical_cases": 151,
       "share_pct": 1.22,
-      "alert": "Green"
-    },
-    {
-      "uc": "AMARPURA",
-      "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.01,
-      "historical_cases": 91,
-      "share_pct": 0.74,
-      "alert": "Green"
-    },
-    {
-      "uc": "KARTARPURA",
-      "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.01,
-      "historical_cases": 92,
-      "share_pct": 0.75,
       "alert": "Green"
     },
     {
@@ -266,6 +303,22 @@
       "expected_cases": 0.0,
       "historical_cases": 13,
       "share_pct": 0.11,
+      "alert": "Green"
+    },
+    {
+      "uc": "Chakri",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.0,
+      "historical_cases": 0,
+      "share_pct": 0.01,
+      "alert": "Green"
+    },
+    {
+      "uc": "PARIAL",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.0,
+      "historical_cases": 0,
+      "share_pct": 0.01,
       "alert": "Green"
     }
   ],

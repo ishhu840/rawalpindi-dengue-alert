@@ -58,7 +58,45 @@ Recommended future folders:
 - `app/`
 - `reports/`
 
-## Current Best Model Direction
+## Model Actually Served By The App
+
+The app runs **Study 1's XGBoost**, loaded from `models/` and never retrained.
+It is the model that won that study's held-out 2025 Rawalpindi validation:
+
+| Model | RMSE | MAE | R² | MAPE |
+|---|---|---|---|---|
+| **XGBoost** | **30.10** | **26.81** | **0.620** | **11.5%** |
+| Random Forest | 50.06 | 37.74 | −0.051 | 15.2% |
+| LSTM | 211.04 | 205.31 | −17.68 | 88.6% |
+
+`src/verify_model.py` re-runs that validation against the vendored artifacts and
+fails if the numbers move. CI runs it before every refresh.
+
+Two things the vendored copies fix versus the study's `.joblib` files:
+
+- the pickles warn about version drift under newer scikit-learn / XGBoost, so
+  the booster is stored as XGBoost native JSON and the scaler as its mean/scale
+  arrays;
+- the study trained with early stopping (best iteration 89 of 140 rounds).
+  `XGBRegressor.predict()` truncates there automatically but a raw `Booster`
+  does not, and scoring all 140 rounds moves the 2025 result from R² 0.620 to
+  0.503. `best_iteration_range()` applies the cut explicitly.
+
+### Why the case-count input is not optional
+
+That validation supplied real observed counts for `Cases_Lag_1w/2w/3w` — week
+37's lag is 159, the actual week-36 figure. Running the same model with
+seasonal medians in those three slots instead:
+
+| Case lags | RMSE | R² | MAPE |
+|---|---|---|---|
+| Real observed counts | 30.10 | 0.620 | 11.5% |
+| Seasonal medians | 166.63 | −10.648 | 69.9% |
+
+It predicts 5 cases for a 159-case week. Keeping `data/recent_cases.csv` current
+is what makes the forecast work.
+
+## Earlier Model Exploration
 
 The existing study shows XGBoost performed best on the available 2025 Rawalpindi validation window. However, the final app should not blindly reuse that model.
 
