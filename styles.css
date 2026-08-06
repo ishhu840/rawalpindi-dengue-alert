@@ -423,36 +423,36 @@ h1, h2, h3 { margin: 0; line-height: 1.1; }
 }
 
 .alert-rank-badge {
-  width: 48px;
-  height: 48px;
+  width: 38px;
+  height: 38px;
   display: grid;
   place-items: center;
-  border: 4px solid #ffffff;
+  border: 3px solid #ffffff;
   border-radius: 50%;
   color: #ffffff;
   font-family: 'Inter', sans-serif;
-  font-size: 18px;
+  font-size: 14px;
   font-weight: 900;
   line-height: 1;
   box-shadow:
-    0 8px 22px rgba(0,0,0,0.45),
-    0 0 0 6px rgba(255,255,255,0.92),
-    0 0 0 14px var(--pulse-color, rgba(220,38,38,0.22));
+    0 6px 16px rgba(0,0,0,0.42),
+    0 0 0 5px rgba(255,255,255,0.9),
+    0 0 0 11px var(--pulse-color, rgba(220,38,38,0.22));
   animation: pinPulse 2.8s ease-in-out infinite;
 }
 
 @keyframes pinPulse {
   0%, 100% {
     box-shadow:
-      0 8px 22px rgba(0,0,0,0.45),
-      0 0 0 6px rgba(255,255,255,0.92),
-      0 0 0 14px var(--pulse-color, rgba(220,38,38,0.22));
+      0 6px 16px rgba(0,0,0,0.42),
+      0 0 0 5px rgba(255,255,255,0.9),
+      0 0 0 11px var(--pulse-color, rgba(220,38,38,0.22));
   }
   50% {
     box-shadow:
-      0 8px 22px rgba(0,0,0,0.45),
-      0 0 0 6px rgba(255,255,255,0.92),
-      0 0 0 24px transparent;
+      0 6px 16px rgba(0,0,0,0.42),
+      0 0 0 5px rgba(255,255,255,0.9),
+      0 0 0 18px transparent;
   }
 }
 

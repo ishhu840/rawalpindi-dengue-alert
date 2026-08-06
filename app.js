@@ -533,8 +533,8 @@ function renderMap(geojson) {
     const icon = L.divIcon({
       className: 'alert-rank-marker',
       html: `<span class="alert-rank-badge" style="background:${color};--pulse-color:${pulse}" aria-label="Risk rank ${label}: ${uc}">${label}</span>`,
-      iconSize: [48, 48],
-      iconAnchor: [24, 24],
+      iconSize: [38, 38],
+      iconAnchor: [19, 19],
     });
 
     L.marker(center, {
@@ -556,7 +556,7 @@ function renderMap(geojson) {
       `, {
         className: 'uc-map-tooltip uc-polygon-tooltip',
         direction: 'top',
-        offset: [0, -26],
+        offset: [0, -22],
         opacity: 1,
       })
       .addTo(_markerLayer);
