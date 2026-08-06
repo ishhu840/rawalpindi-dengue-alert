@@ -151,7 +151,10 @@ def build_features(hist: pd.DataFrame, weather: pd.DataFrame, horizon: int = 4) 
 
 
 def update_geojson(first_cases: float) -> dict:
-    source = json.loads((APP_DATA / "rawalpindi_uc_forecast.geojson").read_text(encoding="utf-8"))
+    source_path = APP_DATA / "rawalpindi_uc_forecast.geojson"
+    if not source_path.exists():
+        source_path = PUBLIC_DATA / "rawalpindi_uc_forecast.geojson"
+    source = json.loads(source_path.read_text(encoding="utf-8"))
     features = [f for f in source["features"] if f.get("properties", {}).get("tehsil") == "Rawalpindi Tehsil"]
     weights = [max(float(f.get("properties", {}).get("historical_cases", 0)), 0) + 1 for f in features]
     total = sum(weights) or 1
