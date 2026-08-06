@@ -452,6 +452,31 @@ h1, h2, h3 { margin: 0; line-height: 1.1; }
 
 .uc-map-tooltip::before { display: none; }
 
+.uc-polygon-tooltip {
+  padding: 8px 10px;
+  border-radius: 7px;
+}
+
+.uc-hover-card {
+  display: grid;
+  gap: 3px;
+  min-width: 150px;
+}
+
+.uc-hover-card strong {
+  color: var(--text-1);
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.uc-hover-card span,
+.uc-hover-card em {
+  color: var(--text-2);
+  font-size: 11px;
+  font-style: normal;
+  line-height: 1.2;
+}
+
 /* Map legend */
 .map-legend {
   position: absolute;

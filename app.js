@@ -31,6 +31,7 @@ const CITY_BOUNDS = { south: 33.48, west: 72.94, north: 33.67, east: 73.16 };
 let _chartInstance = null;
 let _mapInstance   = null;
 let _geojsonLayer  = null;
+let _markerLayer   = null;
 let _refreshTimer  = null;
 let _lastForecast  = null;
 
@@ -87,6 +88,16 @@ async function loadJson(path) {
 }
 
 function el(id) { return document.getElementById(id); }
+
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>"']/g, c => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[c]));
+}
 
 // Animate a number counting up from 0 to target
 function animateCount(element, target, duration = 600, decimals = 0) {
@@ -373,6 +384,9 @@ function renderMap(geojson) {
     if (_geojsonLayer) {
       _geojsonLayer.remove();
     }
+    if (_markerLayer) {
+      _markerLayer.remove();
+    }
   } else {
     _mapInstance = L.map('map', {
       center: [33.575, 73.045],
@@ -444,33 +458,56 @@ function renderMap(geojson) {
     onEachFeature: (feature, layer) => {
       const p = feature.properties;
       const color = alertColor(p.alert);
+      const uc = escapeHtml(p.uc);
+      const tehsil = escapeHtml(p.tehsil);
+      const alert = escapeHtml(p.alert);
+      const expected = fmt(p.expected_cases, 2);
+      const share = fmt(p.share_pct, 2);
+      const historical = fmt(p.historical_cases, 0);
       layer.bindPopup(`
-        <strong>${p.uc}</strong><br>
-        ${p.tehsil}<br>
-        Alert: <strong style="color:${color}">${p.alert}</strong><br>
-        Expected next week: <strong>${fmt(p.expected_cases, 2)}</strong> reported cases<br>
-        Share of city forecast: ${fmt(p.share_pct, 2)}%<br>
-        Historical burden: ${fmt(p.historical_cases, 0)} total cases
+        <strong>${uc}</strong><br>
+        ${tehsil}<br>
+        Alert: <strong style="color:${color}">${alert}</strong><br>
+        Expected next week: <strong>${expected}</strong> reported cases<br>
+        Share of city forecast: ${share}%<br>
+        Historical burden: ${historical} total cases
       `);
+      layer.bindTooltip(`
+        <div class="uc-hover-card">
+          <strong>${uc}</strong>
+          <span>${expected} expected next week</span>
+          <em style="color:${color}">${alert} alert</em>
+        </div>
+      `, {
+        className: 'uc-map-tooltip uc-polygon-tooltip',
+        sticky: true,
+        direction: 'top',
+        opacity: 1,
+      });
       layer.on('mouseover', () => layer.setStyle({ weight: 3, color: '#1e40af', fillOpacity: 0.92 }));
       layer.on('mouseout', () => _geojsonLayer.resetStyle(layer));
     },
   }).addTo(_mapInstance);
 
-  // Add numbered pins for top Red/Orange UCs
+  _markerLayer = L.layerGroup().addTo(_mapInstance);
+
+  // Add numbered pins for the highest expected-case UCs. In low-risk weeks most
+  // UCs are Green, so ranking by expected cases keeps the useful numbers visible.
   const ranked = visibleFeatures
-    .filter(f => ['Red','Orange'].includes(f.properties.alert))
     .sort((a,b) => {
-      const order = { Red:2, Orange:1 };
-      return (order[b.properties.alert]||0) - (order[a.properties.alert]||0) ||
-             (b.properties.expected_cases||0) - (a.properties.expected_cases||0);
+      const order = { Red: 4, Orange: 3, Yellow: 2, Green: 1 };
+      return (b.properties.expected_cases || 0) - (a.properties.expected_cases || 0) ||
+             (order[b.properties.alert] || 0) - (order[a.properties.alert] || 0);
     })
-    .slice(0, 10);
+    .slice(0, 12);
 
   ranked.forEach((feature, i) => {
     const p = feature.properties;
     const color = alertColor(p.alert);
     const pulse = alertPulse(p.alert);
+    const uc = escapeHtml(p.uc);
+    const alert = escapeHtml(p.alert);
+    const expected = fmt(p.expected_cases, 2);
     const bounds = L.geoJSON(feature).getBounds();
     const center = bounds.getCenter();
 
@@ -483,16 +520,16 @@ function renderMap(geojson) {
 
     L.marker(center, { icon, zIndexOffset: 1000 })
       .bindPopup(`
-        <strong>${i+1}. ${p.uc}</strong><br>
-        Alert: <strong style="color:${color}">${p.alert}</strong><br>
-        Expected: <strong>${fmt(p.expected_cases, 2)}</strong> reported cases
+        <strong>${i+1}. ${uc}</strong><br>
+        Alert: <strong style="color:${color}">${alert}</strong><br>
+        Expected next week: <strong>${expected}</strong> reported cases
       `)
-      .bindTooltip(`${p.uc} · ${fmt(p.expected_cases, 1)} exp`, {
+      .bindTooltip(`${i + 1}. ${uc} · ${fmt(p.expected_cases, 1)} expected`, {
         className: 'uc-map-tooltip',
         direction: 'top',
         offset: [0, -18],
       })
-      .addTo(_mapInstance);
+      .addTo(_markerLayer);
   });
 
   // ── Smart initial fit: frame Rawalpindi city perfectly on every screen ──
