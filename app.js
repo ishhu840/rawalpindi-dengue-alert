@@ -530,17 +530,36 @@ function renderMap(geojson) {
     const center = bounds.getCenter();
     const label = String(i + 1);
 
-    const labelBadge = L.tooltip({
-      permanent: true,
-      direction: 'center',
-      className: 'alert-number-tooltip',
-      interactive: false,
-      opacity: 1,
-    })
-      .setLatLng(center)
-      .setContent(`<span class="alert-number-badge" style="border-color:${color};--pulse-color:${pulse}" aria-label="Risk rank ${label}: ${uc}">${label}</span>`);
+    const icon = L.divIcon({
+      className: 'alert-rank-marker',
+      html: `<span class="alert-rank-badge" style="background:${color};--pulse-color:${pulse}" aria-label="Risk rank ${label}: ${uc}">${label}</span>`,
+      iconSize: [48, 48],
+      iconAnchor: [24, 24],
+    });
 
-    _markerLayer.addLayer(labelBadge);
+    L.marker(center, {
+      icon,
+      keyboard: false,
+      zIndexOffset: 10000,
+    })
+      .bindPopup(`
+        <strong>${label}. ${uc}</strong><br>
+        Alert: <strong style="color:${color}">${escapeHtml(p.alert)}</strong><br>
+        Expected next week: <strong>${fmt(p.expected_cases, 2)}</strong> reported cases
+      `)
+      .bindTooltip(`
+        <div class="uc-hover-card">
+          <strong>${label}. ${uc}</strong>
+          <span>${fmt(p.expected_cases, 2)} expected next week</span>
+          <em style="color:${color}">${escapeHtml(p.alert)} alert</em>
+        </div>
+      `, {
+        className: 'uc-map-tooltip uc-polygon-tooltip',
+        direction: 'top',
+        offset: [0, -26],
+        opacity: 1,
+      })
+      .addTo(_markerLayer);
   });
 
   // ── Smart initial fit: frame Rawalpindi city perfectly on every screen ──
