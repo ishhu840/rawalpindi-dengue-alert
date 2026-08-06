@@ -1,0 +1,28 @@
+{
+  "model": "XGBoost (weather-only)",
+  "trained_on": "2013-2022, all cities",
+  "tested_on": "2023-2024 Rawalpindi, temporal holdout",
+  "rmse": 156.55,
+  "mae": 61.16,
+  "r2": 0.104,
+  "correlation": 0.705,
+  "hyperparameters": {
+    "n_estimators": 800,
+    "learning_rate": 0.02,
+    "max_depth": 5,
+    "min_child_weight": 3.0
+  },
+  "n_features": 93,
+  "annual_totals": [
+    {
+      "year": 2023,
+      "actual": 2128,
+      "predicted": 842
+    },
+    {
+      "year": 2024,
+      "actual": 5678,
+      "predicted": 649
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+Temp_Avg
+Humidity_Avg
+Rainfall_Total
+Pressure_Avg
+WindSpeed_Avg
+Cases_Lag_1w
+Cases_Lag_2w
+Cases_Lag_3w
+Temp_Avg_Lag_2w
+Temp_Avg_Lag_3w
+Rainfall_Total_Lag_2w
+Rainfall_Total_Lag_3w
+Week
+Month
+Population

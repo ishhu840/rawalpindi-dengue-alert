@@ -1,6 +1,6 @@
 pandas
 numpy
-scikit-learn
-openpyxl
 requests
-
+openpyxl
+scikit-learn
+xgboost

@@ -49,24 +49,35 @@ function alertPulse(alert) {
   return ALERT_PULSE[alert] || 'rgba(100,120,140,0.15)';
 }
 
+// Monday of an ISO week. Anchored on Jan 4, which is always in ISO week 1 —
+// anchoring on Jan 1 instead is off by a week in years starting Fri or Sat.
+function isoWeekMonday(year, week) {
+  const jan4 = new Date(Date.UTC(year, 0, 4));
+  const week1Monday = new Date(jan4);
+  week1Monday.setUTCDate(jan4.getUTCDate() - (jan4.getUTCDay() || 7) + 1);
+  const monday = new Date(week1Monday);
+  monday.setUTCDate(week1Monday.getUTCDate() + (week - 1) * 7);
+  return monday;
+}
+
 function isoWeekRange(year, week) {
-  // Get the Monday of ISO week
-  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
-  const day = simple.getUTCDay() || 7;
-  const monday = new Date(simple);
-  monday.setUTCDate(simple.getUTCDate() - day + 1);
+  const monday = isoWeekMonday(year, week);
   const sunday = new Date(monday);
   sunday.setUTCDate(monday.getUTCDate() + 6);
-  const opts = { month: 'short', day: 'numeric' };
+  const opts = { month: 'short', day: 'numeric', timeZone: 'UTC' };
   return `${monday.toLocaleDateString(undefined, opts)} – ${sunday.toLocaleDateString(undefined, opts)}`;
 }
 
 function isoWeekLabel(year, week) {
-  const simple = new Date(Date.UTC(year, 0, 1 + (week - 1) * 7));
-  const day = simple.getUTCDay() || 7;
-  const monday = new Date(simple);
-  monday.setUTCDate(simple.getUTCDate() - day + 1);
-  return monday.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+  return isoWeekMonday(year, week)
+    .toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
+}
+
+// End of the forecast week, used to tell "stale data" from "expired forecast".
+function isoWeekEnd(year, week) {
+  const end = isoWeekMonday(year, week);
+  end.setUTCDate(end.getUTCDate() + 7);
+  return end;
 }
 
 async function loadJson(path) {
@@ -94,94 +105,148 @@ function animateCount(element, target, duration = 600, decimals = 0) {
 // ── Render: Header / Summary ───────────────────────────
 function renderSummary(data) {
   const first = data.weekly_forecasts[0];
-  const topUcs = data.top_ucs || [];
+  const counts = data.alert_counts || {};
+  const now = Date.now();
 
-  // Weather pill
-  const isLive = (data.weather_status || '').toLowerCase().includes('fresh');
-  const dot = el('weatherDot');
-  el('weatherStatus').textContent = isLive ? 'Live Weather' : 'Fallback Weather';
-  dot.className = 'pill-dot ' + (isLive ? 'live' : 'warn');
-
-  // Timestamp pill
+  // ── Freshness. The old pill read "Live Weather" straight from the payload
+  // string, so a stale file kept claiming to be live. Age decides now.
   const ts = new Date(data.generated_at);
+  const ageHours = (now - ts.getTime()) / 3.6e6;
+  const expired  = now > isoWeekEnd(first.year, first.week).getTime();
+  const weatherLive = (data.weather_status || '').toLowerCase().includes('fresh');
+
+  const dot = el('weatherDot');
+  let freshness;
+  if (expired) {
+    freshness = { text: 'Forecast expired', cls: 'stale' };
+  } else if (ageHours > 168) {
+    freshness = { text: 'Data over a week old', cls: 'stale' };
+  } else if (ageHours > 48) {
+    freshness = { text: `Data ${Math.floor(ageHours / 24)} days old`, cls: 'warn' };
+  } else {
+    freshness = { text: weatherLive ? 'Live Weather' : 'Fallback Weather', cls: weatherLive ? 'live' : 'warn' };
+  }
+  el('weatherStatus').textContent = freshness.text;
+  dot.className = 'pill-dot ' + freshness.cls;
+  el('weatherPill').classList.toggle('is-stale', freshness.cls === 'stale');
+
   el('generatedAt').textContent = `Updated ${ts.toLocaleDateString(undefined, { month:'short', day:'numeric' })} ${ts.toLocaleTimeString(undefined, { hour:'2-digit', minute:'2-digit' })}`;
 
   // Forecast period & cases
   el('forecastPeriodLabel').textContent = isoWeekRange(first.year, first.week);
 
   const casesEl = el('expectedCases');
-  const targetCases = Number(first.expected_cases);
-  animateCount(casesEl, targetCases, 700, 1);
+  animateCount(casesEl, Number(first.expected_cases), 700, 1);
 
   el('forecastRange').textContent = `${fmt(first.lower_cases, 1)} – ${fmt(first.upper_cases, 1)} cases range`;
 
-  // Alert badge
-  const redRows    = topUcs.filter(r => r.alert === 'Red');
-  const orangeRows = topUcs.filter(r => r.alert === 'Orange');
-  const alertRows  = topUcs.filter(r => ['Red','Orange','Yellow'].includes(r.alert));
+  // ── Alert badge, driven by the forecast across ALL UCs. Previously this read
+  // top_ucs, whose Red entries came from historical burden, so the banner said
+  // RED ALERT every day of the year regardless of the forecast.
+  const nRed    = Number(counts.Red    || 0);
+  const nOrange = Number(counts.Orange || 0);
+  const nYellow = Number(counts.Yellow || 0);
 
   const badge    = el('alertBadge');
   const badgeLvl = el('badgeLevel');
 
-  if (redRows.length > 0) {
-    badge.className    = 'forecast-badge red';
-    badgeLvl.textContent = `⚠ RED ALERT`;
-  } else if (orangeRows.length > 0) {
-    badge.className    = 'forecast-badge orange';
-    badgeLvl.textContent = `▲ HIGH RISK`;
-  } else if (alertRows.length > 0) {
-    badge.className    = 'forecast-badge yellow';
-    badgeLvl.textContent = `◆ WATCH`;
+  if (nRed > 0) {
+    badge.className = 'forecast-badge red';
+    badgeLvl.textContent = '⚠ RED ALERT';
+  } else if (nOrange > 0) {
+    badge.className = 'forecast-badge orange';
+    badgeLvl.textContent = '▲ HIGH RISK';
+  } else if (nYellow > 0) {
+    badge.className = 'forecast-badge yellow';
+    badgeLvl.textContent = '◆ WATCH';
   } else {
-    badge.className    = 'forecast-badge green';
-    badgeLvl.textContent = `✓ LOW RISK`;
+    badge.className = 'forecast-badge green';
+    badgeLvl.textContent = '✓ LOW RISK';
   }
 
-  // KPIs
-  const alertUcEl = el('alertUcCount');
-  animateCount(alertUcEl, alertRows.length, 600, 0);
+  animateCount(el('alertUcCount'), nRed + nOrange + nYellow, 600, 0);
+  animateCount(el('redUcCount'), nRed, 600, 0);
 
-  const redUcEl = el('redUcCount');
-  animateCount(redUcEl, redRows.length, 600, 0);
-
-  // Model info
+  // ── Active model. Two engines: Study 1's XGBoost when case counts exist,
+  // the weather-only model when they don't. Their accuracy differs by a lot,
+  // so the page always shows which one produced these numbers.
   const model = data.selected_model || {};
-  el('modelR2').textContent = model.rolling_origin_mean_r2 != null
-    ? fmt(model.rolling_origin_mean_r2, 3)
-    : '—';
-  el('modelName').textContent = model.name || 'Gradient Boosting';
+  const weatherOnly = model.engine === 'weather_only';
+  el('modelR2').textContent = model.r2 != null ? fmt(model.r2, 2) : '—';
+  el('modelName').textContent = model.name || 'XGBoost';
+  const extEl = el('modelExternal');
+  if (extEl) {
+    extEl.textContent = weatherOnly
+      ? `weather-only · corr ${fmt(model.correlation, 2)}`
+      : (model.mape != null ? `2025 held-out · MAPE ${fmt(model.mape, 1)}%` : '—');
+    extEl.className = 'kpi-foot' + (weatherOnly || (model.r2 != null && model.r2 < 0) ? ' is-negative' : '');
+  }
 
-  // Operational note
+  // ── Case-data provenance: the single most important honesty signal.
+  const cutoffEl = el('casesThrough');
+  if (cutoffEl) {
+    const through = data.cases_through;
+    const basis = (first.cases_basis || '').toLowerCase();
+    if (through) {
+      cutoffEl.textContent = `Cases observed through ${through.year} wk ${through.week}`;
+      cutoffEl.className = 'data-basis basis-ok';
+    } else if (weatherOnly) {
+      cutoffEl.textContent = 'Weather-only forecast — seasonal risk, not a case count';
+      cutoffEl.className = 'data-basis basis-weak';
+    } else {
+      cutoffEl.textContent = 'No observed case data — seasonal baseline only';
+      cutoffEl.className = 'data-basis basis-weak';
+    }
+  }
+
   el('surveillanceStatus').textContent =
     `${data.weather_status || ''}. ${data.surveillance_status || ''}`;
 }
 
 // ── Render: 4-Week Forecast Chart ─────────────────────
+// Open-Meteo's free forecast reaches ~16 days, so the last weeks of the horizon
+// carry no live weather. Those bars are drawn faded so the chart does not imply
+// the same confidence across all four weeks.
+function basisOf(week) {
+  const w = (week.weather_basis || '').toLowerCase();
+  if (w === 'forecast') return 'forecast';
+  if (w === 'partial')  return 'partial';
+  return 'climatology';
+}
+
+const BASIS_NOTE = {
+  forecast:    'live forecast weather',
+  partial:     'partly forecast weather',
+  climatology: 'seasonal weather — no live data',
+};
+
 function renderChart(weeks) {
-  const labels = weeks.map(w => isoWeekLabel(w.year, w.week));
+  const labels   = weeks.map(w => isoWeekLabel(w.year, w.week));
   const expected = weeks.map(w => w.expected_cases);
   const lower    = weeks.map(w => w.lower_cases);
   const upper    = weeks.map(w => w.upper_cases);
+  const bases    = weeks.map(basisOf);
 
-  // Error bar as +/- from expected
-  const errorPlus  = upper.map((u, i) => u - expected[i]);
-  const errorMinus = expected.map((e, i) => e - lower[i]);
+  const barFill = bases.map(b =>
+    b === 'forecast'    ? 'rgba(37,99,235,0.78)'
+    : b === 'partial'   ? 'rgba(37,99,235,0.46)'
+                        : 'rgba(120,150,185,0.30)');
+  const barEdge = bases.map(b =>
+    b === 'climatology' ? 'rgba(120,150,185,0.55)' : 'rgba(37,99,235,0.9)');
 
   if (_chartInstance) {
     _chartInstance.data.labels = labels;
     _chartInstance.data.datasets[0].data = expected;
+    _chartInstance.data.datasets[0].backgroundColor = barFill;
+    _chartInstance.data.datasets[0].borderColor = barEdge;
     _chartInstance.data.datasets[1].data = upper;
     _chartInstance.data.datasets[2].data = lower;
+    _chartInstance._weekBases = bases;
     _chartInstance.update('active');
     return;
   }
 
   const ctx = el('forecastChart').getContext('2d');
-
-  // Gradient fill — blue accent matching light theme
-  const grad = ctx.createLinearGradient(0, 0, 0, 166);
-  grad.addColorStop(0, 'rgba(37,99,235,0.80)');
-  grad.addColorStop(1, 'rgba(14,165,233,0.45)');
 
   _chartInstance = new Chart(ctx, {
     type: 'bar',
@@ -191,8 +256,8 @@ function renderChart(weeks) {
         {
           label: 'Expected',
           data: expected,
-          backgroundColor: grad,
-          borderColor: 'rgba(37,99,235,0.9)',
+          backgroundColor: barFill,
+          borderColor: barEdge,
           borderWidth: 1,
           borderRadius: 5,
           borderSkipped: false,
@@ -245,6 +310,10 @@ function renderChart(weeks) {
               if (ctx.datasetIndex === 1) return ` Upper CI: ${fmt(ctx.parsed.y, 1)}`;
               return ` Lower CI: ${fmt(ctx.parsed.y, 1)}`;
             },
+            afterBody: items => {
+              const b = (_chartInstance && _chartInstance._weekBases || [])[items[0].dataIndex];
+              return b ? `basis: ${BASIS_NOTE[b]}` : '';
+            },
           },
         },
       },
@@ -268,6 +337,7 @@ function renderChart(weeks) {
       },
     },
   });
+  _chartInstance._weekBases = bases;
 }
 
 // ── Render: UC List ───────────────────────────────────
@@ -282,12 +352,13 @@ function renderUcList(rows) {
       const level = row.alert.toLowerCase();
       const color = alertColor(row.alert);
       const delay = i * 40; // stagger animation
+      const share = row.share_pct != null ? ` · ${fmt(row.share_pct, 1)}% share` : '';
       return `
         <div class="uc-row is-${level}" role="listitem" style="animation-delay:${delay}ms">
           <div class="uc-rank" style="background:${color}">${i + 1}</div>
           <div class="uc-info">
             <strong>${row.uc}</strong>
-            <span>${fmt(row.expected_cases, 2)} exp · ${fmt(row.historical_cases, 0)} hist</span>
+            <span>${fmt(row.expected_cases, 2)} expected${share}</span>
           </div>
           <span class="uc-badge badge-${level}">${row.alert}</span>
         </div>`;
@@ -341,9 +412,11 @@ function renderMap(geojson) {
            n >= CITY_BOUNDS.south && s <= CITY_BOUNDS.north;
   }
 
-  const visibleFeatures = geojson.features.filter(
-    f => f.properties.tehsil === 'Rawalpindi Tehsil' && featureInBounds(f)
-  );
+  // Draw every Rawalpindi Tehsil UC. The city-bounds test is now only used to
+  // frame the initial view — previously it also filtered the layer, silently
+  // hiding 14 UCs from the map entirely.
+  const visibleFeatures = geojson.features.filter(f => f.properties.tehsil === 'Rawalpindi Tehsil');
+  const cityCoreFeatures = visibleFeatures.filter(featureInBounds);
 
   const visibleGeoJson = { ...geojson, features: visibleFeatures };
 
@@ -375,7 +448,8 @@ function renderMap(geojson) {
         <strong>${p.uc}</strong><br>
         ${p.tehsil}<br>
         Alert: <strong style="color:${color}">${p.alert}</strong><br>
-        Expected: <strong>${fmt(p.expected_cases, 2)}</strong> reported cases<br>
+        Expected next week: <strong>${fmt(p.expected_cases, 2)}</strong> reported cases<br>
+        Share of city forecast: ${fmt(p.share_pct, 2)}%<br>
         Historical burden: ${fmt(p.historical_cases, 0)} total cases
       `);
       layer.on('mouseover', () => layer.setStyle({ weight: 3, color: '#1e40af', fillOpacity: 0.92 }));
@@ -443,7 +517,13 @@ function renderMap(geojson) {
         padTop = 14; padRight = 14; padBottom = 52; padLeft = 14;
       }
 
-      _mapInstance.fitBounds(_geojsonLayer.getBounds(), {
+      // Frame on the city core, but let the user pan out to the rural UCs that
+      // are now drawn as well.
+      const frameLayer = cityCoreFeatures.length
+        ? L.geoJSON({ ...geojson, features: cityCoreFeatures })
+        : _geojsonLayer;
+
+      _mapInstance.fitBounds(frameLayer.getBounds(), {
         paddingTopLeft:     [padLeft,  padTop],
         paddingBottomRight: [padRight, padBottom],
         animate: false,
@@ -455,8 +535,8 @@ function renderMap(geojson) {
       if (z < 11) _mapInstance.setZoom(11, { animate: false });
       if (z > 13) _mapInstance.setZoom(13, { animate: false });
 
-      // Restrict pan so user stays near Rawalpindi
-      _mapInstance.setMaxBounds(_geojsonLayer.getBounds().pad(0.4));
+      // Pan limit follows every drawn UC, not just the city core
+      _mapInstance.setMaxBounds(_geojsonLayer.getBounds().pad(0.25));
     }
   } catch (_) { /* ignore if layer is empty */ }
 }
@@ -510,8 +590,8 @@ async function loadAndRender() {
         <h2 style="color:#ef4444;font-family:'Barlow Condensed',sans-serif;font-size:24px">Could not load forecast data</h2>
         <p style="color:#8da3c0;max-width:400px;line-height:1.6">
           The forecast data files could not be loaded.<br>
-          Run <code style="color:#f97316">python src/build_alert_outputs.py</code> first,
-          then serve from the <code style="color:#f97316">app/</code> folder.
+          Run <code style="color:#f97316">python src/update_live_forecast.py</code> first,
+          then serve this folder over HTTP.
         </p>
         <p style="color:#4d6a8a;font-size:12px">${err.message}</p>
       </div>`;

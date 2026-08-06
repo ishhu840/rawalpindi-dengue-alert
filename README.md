@@ -58,7 +58,72 @@ Recommended future folders:
 - `app/`
 - `reports/`
 
-## Current Best Model Direction
+## Model Actually Served By The App
+
+The app runs **Study 1's XGBoost**, loaded from `models/` and never retrained.
+It is the model that won that study's held-out 2025 Rawalpindi validation:
+
+| Model | RMSE | MAE | R² | MAPE |
+|---|---|---|---|---|
+| **XGBoost** | **30.10** | **26.81** | **0.620** | **11.5%** |
+| Random Forest | 50.06 | 37.74 | −0.051 | 15.2% |
+| LSTM | 211.04 | 205.31 | −17.68 | 88.6% |
+
+`src/verify_model.py` re-runs that validation against the vendored artifacts and
+fails if the numbers move. CI runs it before every refresh.
+
+Two things the vendored copies fix versus the study's `.joblib` files:
+
+- the pickles warn about version drift under newer scikit-learn / XGBoost, so
+  the booster is stored as XGBoost native JSON and the scaler as its mean/scale
+  arrays;
+- the study trained with early stopping (best iteration 89 of 140 rounds).
+  `XGBRegressor.predict()` truncates there automatically but a raw `Booster`
+  does not, and scoring all 140 rounds moves the 2025 result from R² 0.620 to
+  0.503. `best_iteration_range()` applies the cut explicitly.
+
+### Two engines, chosen automatically
+
+The app picks its model from what data actually exists, at every refresh:
+
+| `data/recent_cases.csv` | Engine | Holdout score |
+|---|---|---|
+| has rows | Study 1 XGBoost | R² **0.620**, MAPE 11.5% (2025) |
+| empty | weather-only XGBoost | R² **0.104**, corr 0.705 (2023–24) |
+
+The weather-only model (`src/train_weather_model.py`) follows the same
+methodology — temporal split, train 2013–2022, test 2023–2024, log1p target,
+XGBoost, 16 tuned configurations — but removes the three case-lag inputs and
+deepens weather memory to 12 weeks: 93 features, all weather and calendar. It
+can therefore run in a season with no surveillance at all, which is the
+situation for 2026.
+
+It is much weaker, and that is inherent rather than a tuning failure. On the
+2023–24 holdout it predicted 842 cases against an actual 2,128, and 649 against
+an actual 5,678. Weather predicts *when* the dengue season arrives — peak
+timing lands within about two weeks — but not *how large* it will be, because
+outbreak size is driven by virus introduction and population immunity, which
+weather does not observe.
+
+The page therefore always shows which engine produced the numbers and its real
+score, and labels the weather-only output as seasonal risk rather than a case
+count.
+
+### Why the case-count input is not optional
+
+That validation supplied real observed counts for `Cases_Lag_1w/2w/3w` — week
+37's lag is 159, the actual week-36 figure. Running the same model with
+seasonal medians in those three slots instead:
+
+| Case lags | RMSE | R² | MAPE |
+|---|---|---|---|
+| Real observed counts | 30.10 | 0.620 | 11.5% |
+| Seasonal medians | 166.63 | −10.648 | 69.9% |
+
+It predicts 5 cases for a 159-case week. Keeping `data/recent_cases.csv` current
+is what makes the forecast work.
+
+## Earlier Model Exploration
 
 The existing study shows XGBoost performed best on the available 2025 Rawalpindi validation window. However, the final app should not blindly reuse that model.
 
@@ -106,8 +171,8 @@ The model/output generator is:
 
 It currently benchmarks available scikit-learn models using rolling-origin year validation and writes outputs to:
 
-- `app/data/latest_forecast.json`
-- `app/data/rawalpindi_uc_forecast.geojson`
+- `data/latest_forecast.json`
+- `data/rawalpindi_uc_forecast.geojson`
 - `reports/model_validation_summary.csv`
 - `reports/rolling_origin_validation.csv`
 - `reports/external_2025_validation.json`
@@ -116,22 +181,61 @@ Current first-pass selected model:
 
 Gradient Boosting.
 
-Important limitation:
+## Weekly Surveillance Input
 
-The live updater uses the Rawalpindi dengue training dataset packaged in this project and fresh Open-Meteo weather. Recent unknown case-lag features use historical Rawalpindi seasonal baselines; no external dengue dashboard is part of the application.
+`data/recent_cases.csv` is how observed dengue counts reach the model:
+
+```csv
+year,week,cases
+2026,30,14
+2026,31,22
+```
+
+`year` and `week` are ISO. This matters more than any other input — `Cases_Lag_1w`
+alone carries about 95% of the model's feature importance. Resolution order for
+each lag is:
+
+1. an observed row in `recent_cases.csv`
+2. the model's own nowcast, for weeks after the last observation
+3. historical seasonal median, as a last resort
+
+With the file empty the app still runs, but the forecast is a seasonal average
+rather than an outbreak signal, and the page says so. If the newest row is more
+than 8 weeks old the nowcast chain is skipped and the app falls back to
+seasonal history.
 
 ## How To Run Locally
 
 From this folder:
 
 ```bash
-python src/build_alert_outputs.py
-python -m http.server 8765 --directory app
+python src/update_live_forecast.py     # fetch weather, refresh forecast
+python -m http.server 8765
 ```
 
 Then open:
 
 `http://127.0.0.1:8765/`
+
+`src/build_alert_outputs.py` re-runs the full model benchmark, but needs the two
+sibling study folders and so cannot run in CI.
+
+## UC Alert Levels
+
+UC colours come from expected reported cases for the forecast week, using
+thresholds calibrated from the historical transmission-season distribution of
+allocated UC-week values:
+
+| Level | Expected cases |
+|---|---|
+| Red | ≥ 8 |
+| Orange | ≥ 3 |
+| Yellow | ≥ 0.5 |
+| Green | below 0.5 |
+
+Historical burden sets each UC's share of the city forecast, but no longer sets
+the colour by itself. It previously did, which pinned the high-burden UCs to Red
+year-round and left the map unable to respond to the forecast at all.
 
 ## Important Note About Reporting Fraction
 
