@@ -463,10 +463,10 @@ function renderMap(geojson) {
     if (a === 'Green') {
       return { color: '#a7f3d0', weight: 1, fillColor: '#d1fae5', fillOpacity: 0.55, opacity: 1 };
     }
-    const fills    = { Yellow: '#fef3c7', Orange: '#ffedd5', Red: '#fee2e2' };
-    const strokes  = { Yellow: '#fbbf24', Orange: '#fb923c', Red: '#f87171' };
-    const opacities= { Yellow: 0.72, Orange: 0.78, Red: 0.82 };
-    const weights  = { Yellow: 1.5, Orange: 2.0, Red: 2.5 };
+    const fills    = { Yellow: '#fde68a', Orange: '#ffedd5', Red: '#fee2e2' };
+    const strokes  = { Yellow: '#a16207', Orange: '#ea580c', Red: '#dc2626' };
+    const opacities= { Yellow: 0.84, Orange: 0.82, Red: 0.86 };
+    const weights  = { Yellow: 2.5, Orange: 2.8, Red: 3.0 };
     return {
       color:       strokes[a]   || color,
       weight:      weights[a]   || 1.5,
@@ -526,37 +526,21 @@ function renderMap(geojson) {
     const color = alertColor(p.alert);
     const pulse = alertPulse(p.alert);
     const uc = escapeHtml(p.uc);
-    const alert = escapeHtml(p.alert);
-    const expected = fmt(p.expected_cases, 2);
     const bounds = L.geoJSON(feature).getBounds();
     const center = bounds.getCenter();
     const label = String(i + 1);
 
-    const icon = L.divIcon({
-      className: '',
-      html: `<div class="alert-pin" style="background:${color};--pulse-color:${pulse}" aria-label="Risk rank ${label}: ${uc}">${label}</div>`,
-      iconSize: [34, 34],
-      iconAnchor: [17, 17],
-    });
-
-    const marker = L.marker(center, {
-      icon,
-      keyboard: false,
-      zIndexOffset: 2000,
+    const labelBadge = L.tooltip({
+      permanent: true,
+      direction: 'center',
+      className: 'alert-number-tooltip',
+      interactive: false,
+      opacity: 1,
     })
-      .bindPopup(`
-        <strong>${label}. ${uc}</strong><br>
-        Alert: <strong style="color:${color}">${alert}</strong><br>
-        Expected next week: <strong>${expected}</strong> reported cases
-      `)
-      .bindTooltip(`${label}. ${uc} · ${fmt(p.expected_cases, 1)} expected`, {
-        className: 'uc-map-tooltip',
-        direction: 'top',
-        offset: [0, -18],
-      })
-      .addTo(_markerLayer);
+      .setLatLng(center)
+      .setContent(`<span class="alert-number-badge" style="border-color:${color};--pulse-color:${pulse}" aria-label="Risk rank ${label}: ${uc}">${label}</span>`);
 
-    marker.getElement()?.classList.add('is-alert-label');
+    _markerLayer.addLayer(labelBadge);
   });
 
   // ── Smart initial fit: frame Rawalpindi city perfectly on every screen ──
