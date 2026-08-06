@@ -20,6 +20,9 @@ const ALERT_PULSE = {
   Red:    'rgba(220,38,38,0.28)',
 };
 
+const ALERT_ORDER = { Red: 4, Orange: 3, Yellow: 2, Green: 1 };
+const MAPPED_ALERTS = new Set(['Yellow', 'Orange', 'Red']);
+
 const REFRESH_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
 const DATA_PATH_FORECAST  = 'data/latest_forecast.json';
 const DATA_PATH_GEOJSON   = 'data/rawalpindi_uc_forecast.geojson';
@@ -48,6 +51,15 @@ function alertColor(alert) {
 
 function alertPulse(alert) {
   return ALERT_PULSE[alert] || 'rgba(100,120,140,0.15)';
+}
+
+function isMappedAlert(alert) {
+  return MAPPED_ALERTS.has(alert);
+}
+
+function sortAlertRows(a, b) {
+  return (ALERT_ORDER[b.alert] || 0) - (ALERT_ORDER[a.alert] || 0) ||
+         (b.expected_cases || 0) - (a.expected_cases || 0);
 }
 
 // Monday of an ISO week. Anchored on Jan 4, which is always in ISO week 1 —
@@ -356,7 +368,18 @@ function renderUcList(rows) {
   const container = el('topUcRows');
   const filtered = rows
     .filter(r => r.tehsil === 'Rawalpindi Tehsil')
+    .filter(r => isMappedAlert(r.alert))
+    .sort(sortAlertRows)
     .slice(0, 12);
+
+  if (!filtered.length) {
+    container.innerHTML = `
+      <div class="uc-empty" role="listitem">
+        <strong>No medium or high alert UCs</strong>
+        <span>Hover any UC on the map for its expected cases.</span>
+      </div>`;
+    return;
+  }
 
   container.innerHTML = filtered
     .map((row, i) => {
@@ -491,14 +514,11 @@ function renderMap(geojson) {
 
   _markerLayer = L.layerGroup().addTo(_mapInstance);
 
-  // Add numbered pins for the highest expected-case UCs. In low-risk weeks most
-  // UCs are Green, so ranking by expected cases keeps the useful numbers visible.
+  // Add numbered pins only for mapped alert UCs. These numbers match the
+  // alert-only ranking in the sidebar.
   const ranked = visibleFeatures
-    .sort((a,b) => {
-      const order = { Red: 4, Orange: 3, Yellow: 2, Green: 1 };
-      return (b.properties.expected_cases || 0) - (a.properties.expected_cases || 0) ||
-             (order[b.properties.alert] || 0) - (order[a.properties.alert] || 0);
-    })
+    .filter(f => isMappedAlert(f.properties.alert))
+    .sort((a,b) => sortAlertRows(a.properties, b.properties))
     .slice(0, 12);
 
   ranked.forEach((feature, i) => {

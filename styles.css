@@ -670,6 +670,26 @@ h1, h2, h3 { margin: 0; line-height: 1.1; }
 .uc-list::-webkit-scrollbar { width: 3px; }
 .uc-list::-webkit-scrollbar-thumb { background: rgba(148,174,208,0.4); border-radius: 99px; }
 
+.uc-empty {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border: var(--border);
+  border-radius: var(--radius-sm);
+  background: var(--surface-2);
+}
+
+.uc-empty strong {
+  color: var(--text-1);
+  font-size: 12.5px;
+}
+
+.uc-empty span {
+  color: var(--text-3);
+  font-size: 11px;
+  line-height: 1.4;
+}
+
 /* UC Row */
 .uc-row {
   display: grid;
