@@ -167,16 +167,19 @@ function renderSummary(data) {
   animateCount(el('alertUcCount'), nRed + nOrange + nYellow, 600, 0);
   animateCount(el('redUcCount'), nRed, 600, 0);
 
-  // ── Model scores, from Study 1's held-out 2025 Rawalpindi validation.
+  // ── Active model. Two engines: Study 1's XGBoost when case counts exist,
+  // the weather-only model when they don't. Their accuracy differs by a lot,
+  // so the page always shows which one produced these numbers.
   const model = data.selected_model || {};
+  const weatherOnly = model.engine === 'weather_only';
   el('modelR2').textContent = model.r2 != null ? fmt(model.r2, 2) : '—';
   el('modelName').textContent = model.name || 'XGBoost';
   const extEl = el('modelExternal');
   if (extEl) {
-    extEl.textContent = model.mape != null
-      ? `2025 held-out · MAPE ${fmt(model.mape, 1)}%`
-      : '—';
-    extEl.className = 'kpi-foot' + (model.r2 != null && model.r2 < 0 ? ' is-negative' : '');
+    extEl.textContent = weatherOnly
+      ? `weather-only · corr ${fmt(model.correlation, 2)}`
+      : (model.mape != null ? `2025 held-out · MAPE ${fmt(model.mape, 1)}%` : '—');
+    extEl.className = 'kpi-foot' + (weatherOnly || (model.r2 != null && model.r2 < 0) ? ' is-negative' : '');
   }
 
   // ── Case-data provenance: the single most important honesty signal.
@@ -186,7 +189,10 @@ function renderSummary(data) {
     const basis = (first.cases_basis || '').toLowerCase();
     if (through) {
       cutoffEl.textContent = `Cases observed through ${through.year} wk ${through.week}`;
-      cutoffEl.className = 'data-basis ' + (basis === 'climatology' ? 'basis-weak' : 'basis-ok');
+      cutoffEl.className = 'data-basis basis-ok';
+    } else if (weatherOnly) {
+      cutoffEl.textContent = 'Weather-only forecast — seasonal risk, not a case count';
+      cutoffEl.className = 'data-basis basis-weak';
     } else {
       cutoffEl.textContent = 'No observed case data — seasonal baseline only';
       cutoffEl.className = 'data-basis basis-weak';

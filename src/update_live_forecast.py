@@ -36,11 +36,16 @@ PUBLIC_DATA = ROOT / "data"
 RECENT_CASES = PUBLIC_DATA / "recent_cases.csv"
 MODEL_DIR = ROOT / "models"
 STUDY_VALIDATION = ROOT / "reports" / "study1_2025_validation_metrics.csv"
+WEATHER_METRICS = MODEL_DIR / "weather_model_metrics.json"
 LAT, LON = 33.5651, 73.0169
 
 # Study 1's selected model and its held-out 2025 Rawalpindi scores.
 SELECTED_MODEL = "XGBoost"
 STUDY_SCORES = {"rmse": 30.10, "mae": 26.81, "r2": 0.620, "mape": 11.5, "weeks": 7}
+
+# Weeks of weather memory the weather-only model reads. Drives how far back
+# the Open-Meteo archive request has to reach.
+WEATHER_MEMORY_WEEKS = 12
 
 # UC alert thresholds on expected reported cases, calibrated from the historical
 # transmission-season distribution of allocated UC-week values (weeks 30-48,
@@ -67,6 +72,63 @@ def load_study_model() -> tuple[xgb.Booster, dict, list[str]]:
     booster.load_model(str(MODEL_DIR / "xgb_model.json"))
     scaler = json.loads((MODEL_DIR / "xgb_scaler.json").read_text(encoding="utf-8"))
     return booster, scaler, list(scaler["features"])
+
+
+def load_weather_model() -> tuple[xgb.Booster, dict, dict] | None:
+    """The weather-only model, or None if it has not been trained yet.
+
+    This is the model that can run in a year with no surveillance feed. It is
+    weaker than Study 1's by a wide margin -- its measured scores travel with
+    it so the app can publish them rather than imply Study 1's accuracy.
+    """
+    model_path = MODEL_DIR / "weather_model.json"
+    if not model_path.exists():
+        return None
+    booster = xgb.Booster()
+    booster.load_model(str(model_path))
+    scaler = json.loads((MODEL_DIR / "weather_scaler.json").read_text(encoding="utf-8"))
+    metrics = json.loads(WEATHER_METRICS.read_text(encoding="utf-8")) if WEATHER_METRICS.exists() else {}
+    return booster, scaler, metrics
+
+
+def weather_feature_row(name: str, year: int, week: int, value, population: float) -> float:
+    """Resolve one weather-only feature by name for a target week.
+
+    Names come from the saved scaler, so this decodes the training script's
+    conventions: `X_L3` is X three weeks back, `X_r4` the mean of the four
+    preceding weeks, `Rain_cN` the N-week preceding rainfall total. Rolling
+    and cumulative terms exclude the target week itself, matching the shift(1)
+    used in training.
+    """
+    if name == "Week":
+        return float(week)
+    if name == "Month":
+        return float(datetime.fromisocalendar(year, week, 1).month)
+    if name == "Population":
+        return population
+    if name == "Week_Sin":
+        return math.sin(2 * math.pi * week / 52)
+    if name == "Week_Cos":
+        return math.cos(2 * math.pi * week / 52)
+    if name == "Monsoon":
+        return float(datetime.fromisocalendar(year, week, 1).month in (7, 8, 9, 10))
+    if name.startswith("Rain_c"):
+        window = int(name.removeprefix("Rain_c"))
+        return sum(value(*week_add(year, week, -k), "Rainfall_Total") for k in range(1, window + 1))
+    for var in ("Temp_Avg", "Humidity_Avg", "Rainfall_Total", "Pressure_Avg", "WindSpeed_Avg"):
+        if name == var:
+            return value(year, week, var)
+        if name.startswith(f"{var}_Lag_") and name.endswith("w"):
+            lag = int(name.removeprefix(f"{var}_Lag_").removesuffix("w"))
+            return value(*week_add(year, week, -lag), var)
+        if name.startswith(f"{var}_L") and name.removeprefix(f"{var}_L").isdigit():
+            lag = int(name.removeprefix(f"{var}_L"))
+            return value(*week_add(year, week, -lag), var)
+        if name.startswith(f"{var}_r"):
+            window = int(name.removeprefix(f"{var}_r"))
+            vals = [value(*week_add(year, week, -k), var) for k in range(1, window + 1)]
+            return sum(vals) / len(vals)
+    raise KeyError(f"unrecognised weather feature: {name}")
 
 
 def best_iteration_range(booster: xgb.Booster) -> tuple[int, int]:
@@ -205,13 +267,19 @@ def run_forecast(
     weather: pd.DataFrame,
     observed: dict[tuple[int, int], float],
     horizon: int = 4,
+    weather_model: tuple | None = None,
 ) -> tuple[list[dict], dict]:
-    """Roll Study 1's XGBoost forward one week at a time.
+    """Produce the published weekly forecasts.
 
-    Weeks between the last observation and the first published week are
-    nowcast so that Cases_Lag_1w -- the feature the study's 2025 validation
-    supplied from real surveillance -- is grounded in observed data for as
-    long as the file allows, instead of jumping straight to a seasonal median.
+    Two models, chosen by what data actually exists:
+
+    * observed case counts available -> Study 1's XGBoost, rolled forward one
+      week at a time, nowcasting the unreported gap so Cases_Lag_1w stays
+      grounded in real data. This is the accurate path (R2 0.620 on 2025).
+    * no case counts -> the weather-only model, which never asks for case
+      history. Much weaker (R2 0.104 on the 2023-24 holdout) but it is the
+      only honest option when nothing is reported; feeding seasonal medians
+      into Study 1's model instead would take it to R2 -10.6.
     """
     raw = hist[hist["City"].eq("Rawalpindi")].copy()
     seasonal = raw.groupby("Week").median(numeric_only=True)
@@ -244,6 +312,36 @@ def run_forecast(
 
     first_monday = date.today() + timedelta(days=(7 - date.today().weekday()))
     first_year, first_week = first_monday.isocalendar()[0], first_monday.isocalendar()[1]
+
+    # No surveillance at all -- Study 1's model has nothing to track, so use
+    # the weather-only model. Each week is independent here: there is no case
+    # history to carry forward, so nothing is nowcast.
+    if not observed_weeks and weather_model is not None:
+        booster, wscaler, wmetrics = weather_model
+        feats = wscaler["features"]
+        mu, sd = np.asarray(wscaler["mean"]), np.asarray(wscaler["scale"])
+        rng = best_iteration_range(booster)
+        published = []
+        year, week = first_year, first_week
+        for _ in range(horizon):
+            row = [weather_feature_row(f, year, week, value, population) for f in feats]
+            scaled = (np.array([row], dtype=float) - mu) / sd
+            expected = float(np.maximum(np.expm1(booster.inplace_predict(scaled, iteration_range=rng))[0], 0.0))
+            published.append({
+                "year": year, "week": week,
+                "expected_cases": round(expected, 1),
+                "lower_cases": round(max(expected * 0.65, 0.0), 1),
+                "upper_cases": round(expected * 1.45 + 3, 1),
+                "seasonal_norm": round(seasonal_cases(week), 1),
+                "cases_basis": "none_weather_model",
+                "weather_basis": weather_basis(year, week, weather_lookup),
+            })
+            year, week = week_add(year, week, 1)
+        return published, {
+            "engine": "weather_only",
+            "engine_metrics": wmetrics,
+            "observed_weeks": 0, "nowcast_weeks": 0, "cases_through": None,
+        }
 
     # Start the roll-forward at the week after the last observation so the
     # unreported gap is nowcast rather than replaced by climatology.
@@ -298,6 +396,8 @@ def run_forecast(
         year, week = week_add(year, week, 1)
 
     provenance = {
+        "engine": "study1_xgboost" if observed_weeks else "study1_xgboost_climatology_lags",
+        "engine_metrics": {"model": SELECTED_MODEL, **STUDY_SCORES},
         "observed_weeks": len(observed_weeks),
         "nowcast_weeks": sum(1 for key in predicted if key < (first_year, first_week)),
         "cases_through": (
@@ -368,24 +468,39 @@ def main() -> None:
     model, scaler, features = load_study_model()
 
     horizon_end = date.today() + timedelta(days=45)
-    weather, weather_status = fetch_weather(date.today() - timedelta(days=84), horizon_end)
+    # Reach back far enough for the weather-only model's 12-week memory on the
+    # first forecast week, plus a fortnight of slack.
+    lookback = 7 * WEATHER_MEMORY_WEEKS + 35
+    weather, weather_status = fetch_weather(date.today() - timedelta(days=lookback), horizon_end)
     observed = load_observed_cases()
-    weekly, provenance = run_forecast(model, scaler, features, hist, weather, observed)
+    weekly, provenance = run_forecast(
+        model, scaler, features, hist, weather, observed, weather_model=load_weather_model()
+    )
     geojson, top_ucs = update_geojson(weekly[0]["expected_cases"])
 
+    engine = provenance["engine"]
     if provenance["cases_through"]:
         through = provenance["cases_through"]
         surveillance_status = (
-            f"Recent case lags use observed Rawalpindi surveillance counts through "
-            f"{through['year']} week {through['week']}"
+            f"Study 1 XGBoost (2025 held-out R2 0.62). Case lags use observed Rawalpindi "
+            f"counts through {through['year']} week {through['week']}"
             + (f", nowcast across {provenance['nowcast_weeks']} unreported week(s)."
                if provenance["nowcast_weeks"] else ".")
         )
+    elif engine == "weather_only":
+        m = provenance["engine_metrics"]
+        surveillance_status = (
+            "No dengue case reports are available for this season, so the forecast comes "
+            f"from the weather-only model ({m.get('tested_on','2023-2024 Rawalpindi')}: "
+            f"R2 {m.get('r2','?')}, correlation {m.get('correlation','?')}). It reads 12 weeks of "
+            "weather history and never sees case counts. Weather predicts the timing of the "
+            "dengue season well but not the size of an outbreak, so treat these numbers as an "
+            "indication of seasonal risk, not a case count."
+        )
     else:
         surveillance_status = (
-            "No observed case counts are loaded, so recent case lags fall back to "
-            "historical seasonal baselines. Add rows to data/recent_cases.csv to "
-            "ground the forecast in reported cases."
+            "No observed case counts and no weather-only model available; recent case lags "
+            "fall back to historical seasonal baselines."
         )
 
     external = {"model": SELECTED_MODEL, **STUDY_SCORES}
@@ -400,13 +515,27 @@ def main() -> None:
         "surveillance_status": surveillance_status,
         "cases_through": provenance["cases_through"],
         "uc_thresholds": {"yellow": UC_YELLOW, "orange": UC_ORANGE, "red": UC_RED},
-        "selected_model": {
-            "name": SELECTED_MODEL,
-            "source": "Study 1 Weekly AI Dengue Forecast — saved model, not retrained",
-            "validation": "held-out 2025 Rawalpindi, weeks 36-42",
-            "rmse": STUDY_SCORES["rmse"], "mae": STUDY_SCORES["mae"],
-            "r2": STUDY_SCORES["r2"], "mape": STUDY_SCORES["mape"],
-        },
+        "selected_model": (
+            {
+                "name": "XGBoost (weather-only)",
+                "engine": engine,
+                "source": "trained on 2013-2022, no case-count inputs",
+                "validation": provenance["engine_metrics"].get("tested_on", "2023-2024 Rawalpindi"),
+                "rmse": provenance["engine_metrics"].get("rmse"),
+                "mae": provenance["engine_metrics"].get("mae"),
+                "r2": provenance["engine_metrics"].get("r2"),
+                "correlation": provenance["engine_metrics"].get("correlation"),
+            }
+            if engine == "weather_only" else
+            {
+                "name": SELECTED_MODEL,
+                "engine": engine,
+                "source": "Study 1 Weekly AI Dengue Forecast — saved model, not retrained",
+                "validation": "held-out 2025 Rawalpindi, weeks 36-42",
+                "rmse": STUDY_SCORES["rmse"], "mae": STUDY_SCORES["mae"],
+                "r2": STUDY_SCORES["r2"], "mape": STUDY_SCORES["mape"],
+            }
+        ),
         "model_comparison": external.get("all_models", []),
         "external_2025_validation": external,
         "weekly_forecasts": weekly, "top_ucs": top_ucs,

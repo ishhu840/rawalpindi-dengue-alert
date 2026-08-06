@@ -82,6 +82,33 @@ Two things the vendored copies fix versus the study's `.joblib` files:
   does not, and scoring all 140 rounds moves the 2025 result from R² 0.620 to
   0.503. `best_iteration_range()` applies the cut explicitly.
 
+### Two engines, chosen automatically
+
+The app picks its model from what data actually exists, at every refresh:
+
+| `data/recent_cases.csv` | Engine | Holdout score |
+|---|---|---|
+| has rows | Study 1 XGBoost | R² **0.620**, MAPE 11.5% (2025) |
+| empty | weather-only XGBoost | R² **0.104**, corr 0.705 (2023–24) |
+
+The weather-only model (`src/train_weather_model.py`) follows the same
+methodology — temporal split, train 2013–2022, test 2023–2024, log1p target,
+XGBoost, 16 tuned configurations — but removes the three case-lag inputs and
+deepens weather memory to 12 weeks: 93 features, all weather and calendar. It
+can therefore run in a season with no surveillance at all, which is the
+situation for 2026.
+
+It is much weaker, and that is inherent rather than a tuning failure. On the
+2023–24 holdout it predicted 842 cases against an actual 2,128, and 649 against
+an actual 5,678. Weather predicts *when* the dengue season arrives — peak
+timing lands within about two weeks — but not *how large* it will be, because
+outbreak size is driven by virus introduction and population immunity, which
+weather does not observe.
+
+The page therefore always shows which engine produced the numbers and its real
+score, and labels the weather-only output as seasonal risk rather than a case
+count.
+
 ### Why the case-count input is not optional
 
 That validation supplied real observed counts for `Cases_Lag_1w/2w/3w` — week

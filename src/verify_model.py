@@ -64,7 +64,26 @@ def main() -> int:
         for line in failures:
             print(f"  {line}")
         return 1
-    print("\nPASS — app predictions are identical to the study's saved model.")
+    print("PASS — app predictions are identical to the study's saved model.")
+
+    # The weather-only fallback: check it loads and its recorded scores are the
+    # ones the app will publish. Weak scores are expected here and are not a
+    # failure -- an absent or unreadable model is.
+    from update_live_forecast import load_weather_model  # noqa: E402
+
+    weather = load_weather_model()
+    if weather is None:
+        print("\nFAILED — models/weather_model.json missing; run src/train_weather_model.py")
+        return 1
+    _, wscaler, wmetrics = weather
+    print(f"\nWeather-only fallback ({wmetrics.get('tested_on','?')})")
+    print(f"  features {len(wscaler['features'])}, no case lags")
+    print(f"  RMSE {wmetrics.get('rmse')}  MAE {wmetrics.get('mae')}"
+          f"  R2 {wmetrics.get('r2')}  corr {wmetrics.get('correlation')}")
+    if any(f.startswith("Cases_Lag") for f in wscaler["features"]):
+        print("\nFAILED — weather-only model contains case-lag features")
+        return 1
+    print("  ok — contains no case-count inputs, so it can run without surveillance")
     return 0
 
 
