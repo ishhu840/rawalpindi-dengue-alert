@@ -530,26 +530,33 @@ function renderMap(geojson) {
     const expected = fmt(p.expected_cases, 2);
     const bounds = L.geoJSON(feature).getBounds();
     const center = bounds.getCenter();
+    const label = String(i + 1);
 
     const icon = L.divIcon({
       className: '',
-      html: `<div class="alert-pin" style="background:${color};--pulse-color:${pulse}" aria-label="Risk rank ${i+1}: ${p.uc}">${i+1}</div>`,
-      iconSize: [30, 30],
-      iconAnchor: [15, 15],
+      html: `<div class="alert-pin" style="background:${color};--pulse-color:${pulse}" aria-label="Risk rank ${label}: ${uc}">${label}</div>`,
+      iconSize: [34, 34],
+      iconAnchor: [17, 17],
     });
 
-    L.marker(center, { icon, zIndexOffset: 1000 })
+    const marker = L.marker(center, {
+      icon,
+      keyboard: false,
+      zIndexOffset: 2000,
+    })
       .bindPopup(`
-        <strong>${i+1}. ${uc}</strong><br>
+        <strong>${label}. ${uc}</strong><br>
         Alert: <strong style="color:${color}">${alert}</strong><br>
         Expected next week: <strong>${expected}</strong> reported cases
       `)
-      .bindTooltip(`${i + 1}. ${uc} · ${fmt(p.expected_cases, 1)} expected`, {
+      .bindTooltip(`${label}. ${uc} · ${fmt(p.expected_cases, 1)} expected`, {
         className: 'uc-map-tooltip',
         direction: 'top',
         offset: [0, -18],
       })
       .addTo(_markerLayer);
+
+    marker.getElement()?.classList.add('is-alert-label');
   });
 
   // ── Smart initial fit: frame Rawalpindi city perfectly on every screen ──
