@@ -52,6 +52,8 @@ WEATHER_MEMORY_WEEKS = 12
 # 2013-2024): Yellow ~p75, Orange ~p93, Red ~p97. Historical burden is shown as
 # context but no longer sets the colour on its own.
 UC_YELLOW, UC_ORANGE, UC_RED = 0.5, 3.0, 8.0
+MIN_YELLOW_WATCH_UCS = 5
+MIN_CITY_CASES_FOR_WATCH = 1.0
 
 # Beyond this many weeks without surveillance data, rolling the model forward
 # from its own output stops being meaningful and we fall back to seasonal history.
@@ -456,9 +458,17 @@ def update_geojson(first_cases: float) -> tuple[dict, list[dict]]:
             "uc": props.get("uc", ""), "tehsil": props.get("tehsil", ""),
             "expected_cases": round(expected, 2), "historical_cases": int(round(historical)),
             "share_pct": props["share_pct"], "alert": props["alert"],
+            "_feature": feature,
         })
     result = {**source, "features": features}
     rows.sort(key=lambda r: r["expected_cases"], reverse=True)
+    if first_cases >= MIN_CITY_CASES_FOR_WATCH:
+        for row in rows[:MIN_YELLOW_WATCH_UCS]:
+            if row["alert"] == "Green" and row["expected_cases"] > 0:
+                row["alert"] = "Yellow"
+                row["_feature"]["properties"]["alert"] = "Yellow"
+    for row in rows:
+        row.pop("_feature", None)
     return result, rows[:25]
 
 

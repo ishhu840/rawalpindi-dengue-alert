@@ -6,8 +6,10 @@
   "cases_through": null,
   "uc_thresholds": {
     "yellow": 0.5,
-    "orange": 3.0,
-    "red": 8.0
+    "orange": 3,
+    "red": 8,
+    "min_yellow_watch_ucs": 5,
+    "min_city_cases_for_watch": 1
   },
   "selected_model": {
     "name": "XGBoost (weather-only)",
@@ -86,7 +88,7 @@
       "expected_cases": 2.8,
       "lower_cases": 1.8,
       "upper_cases": 7.1,
-      "seasonal_norm": 2.0,
+      "seasonal_norm": 2,
       "cases_basis": "none_weather_model",
       "weather_basis": "forecast"
     },
@@ -96,7 +98,7 @@
       "expected_cases": 3.6,
       "lower_cases": 2.3,
       "upper_cases": 8.2,
-      "seasonal_norm": 6.0,
+      "seasonal_norm": 6,
       "cases_basis": "none_weather_model",
       "weather_basis": "partial"
     },
@@ -114,8 +116,8 @@
       "year": 2026,
       "week": 36,
       "expected_cases": 6.2,
-      "lower_cases": 4.0,
-      "upper_cases": 12.0,
+      "lower_cases": 4,
+      "upper_cases": 12,
       "seasonal_norm": 16.5,
       "cases_basis": "none_weather_model",
       "weather_basis": "climatology"
@@ -136,7 +138,7 @@
       "expected_cases": 0.32,
       "historical_cases": 1421,
       "share_pct": 11.41,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "Dhaman Syedan",
@@ -144,7 +146,7 @@
       "expected_cases": 0.24,
       "historical_cases": 1075,
       "share_pct": 8.63,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "LAKKHAN",
@@ -152,7 +154,7 @@
       "expected_cases": 0.24,
       "historical_cases": 1052,
       "share_pct": 8.45,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "Gulistan Colony",
@@ -160,7 +162,7 @@
       "expected_cases": 0.15,
       "historical_cases": 670,
       "share_pct": 5.38,
-      "alert": "Green"
+      "alert": "Yellow"
     },
     {
       "uc": "DHOK MUNSHI KHAN",
@@ -324,7 +326,7 @@
     }
   ],
   "alert_counts": {
-    "Green": 87,
-    "Yellow": 1
+    "Yellow": 5,
+    "Green": 83
   }
 }
