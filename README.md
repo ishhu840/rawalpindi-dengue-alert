@@ -106,8 +106,8 @@ The model/output generator is:
 
 It currently benchmarks available scikit-learn models using rolling-origin year validation and writes outputs to:
 
-- `app/data/latest_forecast.json`
-- `app/data/rawalpindi_uc_forecast.geojson`
+- `data/latest_forecast.json`
+- `data/rawalpindi_uc_forecast.geojson`
 - `reports/model_validation_summary.csv`
 - `reports/rolling_origin_validation.csv`
 - `reports/external_2025_validation.json`
@@ -116,22 +116,61 @@ Current first-pass selected model:
 
 Gradient Boosting.
 
-Important limitation:
+## Weekly Surveillance Input
 
-The live updater uses the Rawalpindi dengue training dataset packaged in this project and fresh Open-Meteo weather. Recent unknown case-lag features use historical Rawalpindi seasonal baselines; no external dengue dashboard is part of the application.
+`data/recent_cases.csv` is how observed dengue counts reach the model:
+
+```csv
+year,week,cases
+2026,30,14
+2026,31,22
+```
+
+`year` and `week` are ISO. This matters more than any other input — `Cases_Lag_1w`
+alone carries about 95% of the model's feature importance. Resolution order for
+each lag is:
+
+1. an observed row in `recent_cases.csv`
+2. the model's own nowcast, for weeks after the last observation
+3. historical seasonal median, as a last resort
+
+With the file empty the app still runs, but the forecast is a seasonal average
+rather than an outbreak signal, and the page says so. If the newest row is more
+than 8 weeks old the nowcast chain is skipped and the app falls back to
+seasonal history.
 
 ## How To Run Locally
 
 From this folder:
 
 ```bash
-python src/build_alert_outputs.py
-python -m http.server 8765 --directory app
+python src/update_live_forecast.py     # fetch weather, refresh forecast
+python -m http.server 8765
 ```
 
 Then open:
 
 `http://127.0.0.1:8765/`
+
+`src/build_alert_outputs.py` re-runs the full model benchmark, but needs the two
+sibling study folders and so cannot run in CI.
+
+## UC Alert Levels
+
+UC colours come from expected reported cases for the forecast week, using
+thresholds calibrated from the historical transmission-season distribution of
+allocated UC-week values:
+
+| Level | Expected cases |
+|---|---|
+| Red | ≥ 8 |
+| Orange | ≥ 3 |
+| Yellow | ≥ 0.5 |
+| Green | below 0.5 |
+
+Historical burden sets each UC's share of the city forecast, but no longer sets
+the colour by itself. It previously did, which pinned the high-burden UCs to Red
+year-round and left the map unable to respond to the forecast at all.
 
 ## Important Note About Reporting Fraction
 

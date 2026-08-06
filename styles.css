@@ -330,6 +330,26 @@ h1, h2, h3 { margin: 0; line-height: 1.1; }
   box-shadow: var(--shadow-sm);
 }
 
+/* Case-data provenance chip — states plainly what the forecast is grounded in */
+.data-basis {
+  margin-top: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-align: right;
+  white-space: nowrap;
+  color: var(--text-3);
+}
+.data-basis.basis-ok   { color: var(--green); }
+.data-basis.basis-weak { color: var(--yellow); }
+
+/* Stale-data state for the freshness pill */
+.pill-dot.stale { background: var(--red); box-shadow: 0 0 6px var(--red-glow); }
+.status-pill.is-stale {
+  border-color: var(--red);
+  background: var(--red-light);
+}
+
 /* ── Leaflet Map ── */
 #map {
   flex: 1;
@@ -558,6 +578,15 @@ h1, h2, h3 { margin: 0; line-height: 1.1; }
   color: var(--text-3);
   margin-top: 3px;
 }
+
+/* Held-out 2025 score, shown next to the optimistic panel R² */
+.kpi-foot {
+  font-size: 9px;
+  color: var(--text-3);
+  margin-top: 2px;
+  line-height: 1.3;
+}
+.kpi-foot.is-negative { color: var(--red); }
 
 /* ── Panel ── */
 .panel {
