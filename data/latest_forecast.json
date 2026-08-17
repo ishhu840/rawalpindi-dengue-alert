@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-16T03:59:12",
+  "generated_at": "2026-08-17T04:02:05",
   "forecast_note": "Forecasts are expected reported dengue cases from the Study 1 XGBoost model. UC values allocate the city forecast by historical burden share.",
   "weather_status": "Fresh Open-Meteo history and forecast weather used",
   "surveillance_status": "No dengue case reports are available for this season, so the forecast comes from the weather-only model (2023-2024 Rawalpindi, temporal holdout: R2 0.104, correlation 0.705). It reads 12 weeks of weather history and never sees case counts. Weather predicts the timing of the dengue season well but not the size of an outbreak, so treat these numbers as an indication of seasonal risk, not a case count.",
@@ -82,20 +82,10 @@
   "weekly_forecasts": [
     {
       "year": 2026,
-      "week": 34,
-      "expected_cases": 3.1,
-      "lower_cases": 2.0,
-      "upper_cases": 7.5,
-      "seasonal_norm": 6.0,
-      "cases_basis": "none_weather_model",
-      "weather_basis": "forecast"
-    },
-    {
-      "year": 2026,
       "week": 35,
-      "expected_cases": 2.7,
-      "lower_cases": 1.8,
-      "upper_cases": 6.9,
+      "expected_cases": 2.6,
+      "lower_cases": 1.7,
+      "upper_cases": 6.8,
       "seasonal_norm": 6.5,
       "cases_basis": "none_weather_model",
       "weather_basis": "forecast"
@@ -103,9 +93,9 @@
     {
       "year": 2026,
       "week": 36,
-      "expected_cases": 6.3,
-      "lower_cases": 4.1,
-      "upper_cases": 12.1,
+      "expected_cases": 5.3,
+      "lower_cases": 3.4,
+      "upper_cases": 10.6,
       "seasonal_norm": 16.5,
       "cases_basis": "none_weather_model",
       "weather_basis": "partial"
@@ -114,9 +104,19 @@
       "year": 2026,
       "week": 37,
       "expected_cases": 3.9,
-      "lower_cases": 2.5,
-      "upper_cases": 8.6,
+      "lower_cases": 2.6,
+      "upper_cases": 8.7,
       "seasonal_norm": 29.5,
+      "cases_basis": "none_weather_model",
+      "weather_basis": "climatology"
+    },
+    {
+      "year": 2026,
+      "week": 38,
+      "expected_cases": 7.0,
+      "lower_cases": 4.6,
+      "upper_cases": 13.2,
+      "seasonal_norm": 63.5,
       "cases_basis": "none_weather_model",
       "weather_basis": "climatology"
     }
@@ -125,7 +125,7 @@
     {
       "uc": "Dhoke Mangtal",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.61,
+      "expected_cases": 0.51,
       "historical_cases": 2465,
       "share_pct": 19.78,
       "alert": "Yellow"
@@ -133,7 +133,7 @@
     {
       "uc": "Dhamial",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.35,
+      "expected_cases": 0.3,
       "historical_cases": 1421,
       "share_pct": 11.41,
       "alert": "Yellow"
@@ -141,7 +141,7 @@
     {
       "uc": "Dhaman Syedan",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.27,
+      "expected_cases": 0.22,
       "historical_cases": 1075,
       "share_pct": 8.63,
       "alert": "Yellow"
@@ -149,7 +149,7 @@
     {
       "uc": "LAKKHAN",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.26,
+      "expected_cases": 0.22,
       "historical_cases": 1052,
       "share_pct": 8.45,
       "alert": "Yellow"
@@ -157,7 +157,7 @@
     {
       "uc": "Gulistan Colony",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.17,
+      "expected_cases": 0.14,
       "historical_cases": 670,
       "share_pct": 5.38,
       "alert": "Yellow"
@@ -165,7 +165,7 @@
     {
       "uc": "DHOK MUNSHI KHAN",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.15,
+      "expected_cases": 0.12,
       "historical_cases": 585,
       "share_pct": 4.7,
       "alert": "Green"
@@ -173,7 +173,7 @@
     {
       "uc": "KOTHA KALAN",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.15,
+      "expected_cases": 0.12,
       "historical_cases": 596,
       "share_pct": 4.79,
       "alert": "Green"
@@ -181,7 +181,7 @@
     {
       "uc": "CHAK JALAL DIN",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.14,
+      "expected_cases": 0.12,
       "historical_cases": 580,
       "share_pct": 4.66,
       "alert": "Green"
@@ -189,7 +189,7 @@
     {
       "uc": "RANIAL",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.11,
+      "expected_cases": 0.09,
       "historical_cases": 422,
       "share_pct": 3.39,
       "alert": "Green"
@@ -197,7 +197,7 @@
     {
       "uc": "DHOK ALI AKBAR",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.1,
+      "expected_cases": 0.08,
       "historical_cases": 405,
       "share_pct": 3.26,
       "alert": "Green"
@@ -205,7 +205,7 @@
     {
       "uc": "BANNI",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.08,
+      "expected_cases": 0.07,
       "historical_cases": 315,
       "share_pct": 2.53,
       "alert": "Green"
@@ -213,7 +213,7 @@
     {
       "uc": "Waris Khan",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.06,
+      "expected_cases": 0.05,
       "historical_cases": 243,
       "share_pct": 1.96,
       "alert": "Green"
@@ -221,7 +221,7 @@
     {
       "uc": "RAWALPINDI CANTT-9",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.05,
+      "expected_cases": 0.04,
       "historical_cases": 185,
       "share_pct": 1.49,
       "alert": "Green"
@@ -229,17 +229,9 @@
     {
       "uc": "KHANA DAK",
       "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.04,
+      "expected_cases": 0.03,
       "historical_cases": 151,
       "share_pct": 1.22,
-      "alert": "Green"
-    },
-    {
-      "uc": "Jhanda Chichi",
-      "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.04,
-      "historical_cases": 145,
-      "share_pct": 1.17,
       "alert": "Green"
     },
     {
@@ -248,6 +240,14 @@
       "expected_cases": 0.03,
       "historical_cases": 125,
       "share_pct": 1.01,
+      "alert": "Green"
+    },
+    {
+      "uc": "Jhanda Chichi",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.03,
+      "historical_cases": 145,
+      "share_pct": 1.17,
       "alert": "Green"
     },
     {
@@ -307,19 +307,19 @@
       "alert": "Green"
     },
     {
-      "uc": "PURANA QILLA",
-      "tehsil": "Rawalpindi Tehsil",
-      "expected_cases": 0.02,
-      "historical_cases": 61,
-      "share_pct": 0.5,
-      "alert": "Green"
-    },
-    {
       "uc": "DHOK KHABBA",
       "tehsil": "Rawalpindi Tehsil",
       "expected_cases": 0.02,
       "historical_cases": 86,
       "share_pct": 0.7,
+      "alert": "Green"
+    },
+    {
+      "uc": "DHOK FARMAN ALI",
+      "tehsil": "Rawalpindi Tehsil",
+      "expected_cases": 0.02,
+      "historical_cases": 80,
+      "share_pct": 0.65,
       "alert": "Green"
     }
   ],
