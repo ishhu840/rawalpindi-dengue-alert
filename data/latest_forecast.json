@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-08-18T03:57:57",
+  "generated_at": "2026-08-19T03:58:29",
   "forecast_note": "Forecasts are expected reported dengue cases from the Study 1 XGBoost model. UC values allocate the city forecast by historical burden share.",
   "weather_status": "Fresh Open-Meteo history and forecast weather used",
   "surveillance_status": "No dengue case reports are available for this season, so the forecast comes from the weather-only model (2023-2024 Rawalpindi, temporal holdout: R2 0.104, correlation 0.705). It reads 12 weeks of weather history and never sees case counts. Weather predicts the timing of the dengue season well but not the size of an outbreak, so treat these numbers as an indication of seasonal risk, not a case count.",
@@ -93,9 +93,9 @@
     {
       "year": 2026,
       "week": 36,
-      "expected_cases": 3.7,
-      "lower_cases": 2.4,
-      "upper_cases": 8.4,
+      "expected_cases": 4.7,
+      "lower_cases": 3.1,
+      "upper_cases": 9.9,
       "seasonal_norm": 16.5,
       "cases_basis": "none_weather_model",
       "weather_basis": "partial"
@@ -103,9 +103,9 @@
     {
       "year": 2026,
       "week": 37,
-      "expected_cases": 3.3,
-      "lower_cases": 2.2,
-      "upper_cases": 7.8,
+      "expected_cases": 4.1,
+      "lower_cases": 2.7,
+      "upper_cases": 9.0,
       "seasonal_norm": 29.5,
       "cases_basis": "none_weather_model",
       "weather_basis": "climatology"
@@ -113,9 +113,9 @@
     {
       "year": 2026,
       "week": 38,
-      "expected_cases": 5.7,
-      "lower_cases": 3.7,
-      "upper_cases": 11.2,
+      "expected_cases": 7.5,
+      "lower_cases": 4.9,
+      "upper_cases": 13.9,
       "seasonal_norm": 63.5,
       "cases_basis": "none_weather_model",
       "weather_basis": "climatology"
