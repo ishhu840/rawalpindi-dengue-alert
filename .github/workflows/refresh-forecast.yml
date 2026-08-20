@@ -8,6 +8,8 @@ on:
 
 permissions:
   contents: write
+  pages: write
+  id-token: write
 
 jobs:
   refresh:
@@ -32,7 +34,7 @@ jobs:
       - name: Fetch live weather and refresh AI dengue forecast
         run: python src/update_live_forecast.py
 
-      - name: Commit and push to main
+      - name: Commit updated forecast data to main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -40,10 +42,15 @@ jobs:
           git diff --cached --quiet || git commit -m "chore: refresh live weather forecast [skip ci]"
           git push
 
-      - name: Sync fresh data to gh-pages (live site)
-        run: |
-          git fetch origin gh-pages
-          git checkout gh-pages
-          git checkout main -- data/latest_forecast.json data/rawalpindi_uc_forecast.geojson
-          git diff --quiet || git commit -m "chore: sync forecast data to live site [skip ci]"
-          git push origin gh-pages
+      # ── Re-deploy the live GitHub Pages site with the fresh data ──────────
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload repo root as Pages artifact (with fresh data)
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: "."
+
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
