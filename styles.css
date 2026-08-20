@@ -679,7 +679,7 @@ h1, h2, h3 { margin: 0; line-height: 1.1; }
   flex-direction: column;
   gap: 6px;
   padding: 10px;
-  max-height: 340px;
+  max-height: 420px;
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: rgba(148,174,208,0.3) transparent;
@@ -711,7 +711,7 @@ h1, h2, h3 { margin: 0; line-height: 1.1; }
 /* UC Row */
 .uc-row {
   display: grid;
-  grid-template-columns: 26px 1fr auto;
+  grid-template-columns: 26px minmax(0,1fr) auto;
   align-items: center;
   gap: 10px;
   padding: 9px 10px;
@@ -751,6 +751,11 @@ h1, h2, h3 { margin: 0; line-height: 1.1; }
   flex-shrink: 0;
 }
 
+.uc-info {
+  min-width: 0;        /* allow text to shrink inside 1fr column */
+  overflow: hidden;
+}
+
 .uc-info strong {
   display: block;
   font-size: 12.5px;
@@ -761,7 +766,14 @@ h1, h2, h3 { margin: 0; line-height: 1.1; }
   text-overflow: ellipsis;
 }
 
-.uc-info span { font-size: 10.5px; color: var(--text-3); }
+.uc-info span {
+  font-size: 10.5px;
+  color: var(--text-3);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: block;
+}
 
 .uc-badge {
   padding: 3px 8px;
