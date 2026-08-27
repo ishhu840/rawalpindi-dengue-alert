@@ -426,10 +426,10 @@ function renderMap(geojson) {
     L.control.zoom({ position: 'bottomright' }).addTo(_mapInstance);
     L.control.scale({ position: 'bottomright', imperial: false, maxWidth: 90 }).addTo(_mapInstance);
 
-    // CartoDB Positron — clean light tiles, perfect for a light theme
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-      attribution: '&copy; <a href="https://www.openstreetmap.org">OSM</a> &copy; <a href="https://carto.com">CARTO</a>',
-      subdomains: 'abcd',
+    // OpenStreetMap — free tiles, no API key required
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      subdomains: 'abc',
       maxZoom: 19,
     }).addTo(_mapInstance);
   }
